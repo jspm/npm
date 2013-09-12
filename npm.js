@@ -6,7 +6,7 @@ var rmdir = require('rmdir');
 var path = require('path');
 var glob = require('glob');
 
-var exactVersionRegEx = require('../jspm-server').exactVersionRegEx;
+var exactVersionRegEx = /^(\d+)(\.\d+)(\.\d+)?$/;
 
 var tmpDir;
 
