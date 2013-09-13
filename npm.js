@@ -16,7 +16,7 @@ var nodeBuiltins = ['assert', 'child_process', 'dgram', 'events', 'fs', 'https',
 var NPMLocation = function(options) {
   this.baseDir = options.baseDir;
   tmpDir = options.tmpDir;
-  this.log = options.log || true;
+  this.log = options.log === false ? false : true;
 }
 
 var downloadBuiltin = function(name, version, outDir, callback, errback) {
