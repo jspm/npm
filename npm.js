@@ -227,11 +227,19 @@ NPMLocation.prototype = {
           .on('error', errback)
           .on('end', function() {
 
-            moveFromTmpDir(path.resolve(tmpPath + '/package'), outDir, function() {
+            // list the dir to get the package folder (older NPM had a varied name)
+            fs.readDir(path.resolve(tmpPath), function(err, files) {
 
-              lockDependencies(outDir, callback, errback);
+              if (err || !files || !files.length)
+                return errback();
 
-            }, errback);
+              moveFromTmpDir(path.resolve(tmpPath, files[0]), outDir, function() {
+
+                lockDependencies(outDir, callback, errback);
+
+              }, errback);
+
+            });
 
           });
 
