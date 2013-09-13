@@ -228,7 +228,7 @@ NPMLocation.prototype = {
           .on('end', function() {
 
             // list the dir to get the package folder (older NPM had a varied name)
-            fs.readDir(path.resolve(tmpPath), function(err, files) {
+            fs.readdir(path.resolve(tmpPath), function(err, files) {
 
               if (err || !files || !files.length)
                 return errback();
