@@ -16,6 +16,7 @@ var nodeBuiltins = ['assert', 'child_process', 'dgram', 'events', 'fs', 'https',
 var NPMLocation = function(options) {
   this.baseDir = options.baseDir;
   tmpDir = options.tmpDir;
+  this.log = options.log || true;
 }
 
 var downloadBuiltin = function(name, version, outDir, callback, errback) {
@@ -191,7 +192,8 @@ NPMLocation.prototype = {
   },
   download: function(repo, version, hash, outDir, callback, errback) {
 
-    console.log(new Date() + ': Requesting package npm:' + repo);
+    if (this.log)
+      console.log(new Date() + ': Requesting package npm:' + repo);
 
     prepareDir(outDir, function() {
 
