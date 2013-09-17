@@ -99,22 +99,14 @@ var lockDependencies = function(dir, callback, errback) {
         replaceMap[d] = d + '@' + v;
     }
 
-    // glob all the js files and replace in the versions
-    glob(dir + '/**/*.js', function(err, files) {
+    pjson.dependencyMap = replaceMap;
+
+    // save back the package.json for further processing
+    fs.writeFile(dir + '/package.json', JSON.stringify(pjson, null, 2), function(err) {
       if (err)
         return errback(err);
 
-      if (!files.length)
-        return callback();
-
-      var doneCnt = 0;
-      for (var i = 0; i < files.length; i++)
-        replaceRequires(files[i], replaceMap, function() {
-          doneCnt++;
-          if (doneCnt == files.length)
-            callback();
-        }, errback);
-
+      callback();
     });
 
   });
