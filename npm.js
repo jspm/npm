@@ -27,7 +27,7 @@ var downloadBuiltin = function(name, version, outDir, callback, errback) {
     if (err)
       return errback(err);
 
-    fs.writeFile(outDir + '/index.js', body, function(err) {
+    fs.writeFile(outDir + path.sep + 'index.js', body, function(err) {
       if (err)
         return errback(err);
       callback();
@@ -76,7 +76,7 @@ var moveFromTmpDir = function(tmpDir, outDir, callback, errback) {
 
 var lockDependencies = function(dir, callback, errback) {
   // read package.json and get dependencies and versions
-  fs.readFile(dir + '/package.json', function(err, data) {
+  fs.readFile(dir + path.sep + 'package.json', function(err, data) {
     if (err)
       return callback();
 
@@ -94,15 +94,15 @@ var lockDependencies = function(dir, callback, errback) {
     for (var d in pjson.dependencies) {
       var v = pjson.dependencies[d];
       if (v.substr(0, 1) == '~')
-        replaceMap[d] = d + '@' + v.substr(1).split('.').splice(0, 2).join('.');
+        replaceMap[d] = 'npm:' + d + '@' + v.substr(1).split('.').splice(0, 2).join('.');
       else if (v.match(exactVersionRegEx))
-        replaceMap[d] = d + '@' + v;
+        replaceMap[d] = 'npm:' + d + '@' + v;
     }
 
     pjson.dependencyMap = replaceMap;
 
     // save back the package.json for further processing
-    fs.writeFile(dir + '/package.json', JSON.stringify(pjson, null, 2), function(err) {
+    fs.writeFile(dir + path.sep + 'package.json', JSON.stringify(pjson, null, 2), function(err) {
       if (err)
         return errback(err);
 
@@ -209,7 +209,7 @@ NPMLocation.prototype = {
 
         var gzip = zlib.createGunzip();
 
-        var tmpPath = tmpDir + '/' + repo;
+        var tmpPath = tmpDir + path.sep + repo;
 
         prepareDir(tmpPath, function() {
 
