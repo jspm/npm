@@ -97,7 +97,13 @@ var lockDependencies = function(dir, callback, errback) {
         replaceMap[d] = 'npm:' + d + '@' + v.substr(1).split('.').splice(0, 2).join('.');
       else if (v.match(exactVersionRegEx))
         replaceMap[d] = 'npm:' + d + '@' + v;
+      else
+        replaceMap[d] = 'npm:' + d;
     }
+
+    for (var i = 0; i < nodeBuiltins.length; i++)
+      replaceMap[nodeBuiltins[i]] = 'npm:' + nodeBuiltins[i];
+    
 
     pjson.dependencyMap = replaceMap;
 
