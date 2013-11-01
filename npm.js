@@ -30,7 +30,8 @@ var downloadBuiltin = function(name, version, outDir, callback, errback) {
     fs.writeFile(outDir + path.sep + 'index.js', body, function(err) {
       if (err)
         return errback(err);
-      callback();
+        
+      lockDependencies(outDir, callback, errback);
     });
   });
 }
