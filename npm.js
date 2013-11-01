@@ -78,15 +78,15 @@ var moveFromTmpDir = function(tmpDir, outDir, callback, errback) {
 var lockDependencies = function(dir, callback, errback) {
   // read package.json and get dependencies and versions
   fs.readFile(dir + path.sep + 'package.json', function(err, data) {
-    if (err)
-      return callback();
+    if (err && err.code != 'ENOENT')
+      return errback();
 
     var pjson;
     try {
       pjson = JSON.parse(data + '');
     }
     catch (e) {
-      return callback();
+      pjson = {};
     }
 
     pjson.dependencies = pjson.dependencies || {};
