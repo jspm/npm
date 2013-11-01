@@ -146,7 +146,7 @@ NPMLocation.prototype = {
   getVersions: function(repo, callback, errback) {
     
     if (nodeBuiltins.indexOf(repo) != -1)
-      return callback({ '0.0.1': 'IUHFBFHWMC' });
+      return callback({ '0.0.2': 'IUHFBFHWMD' });
 
     request('https://registry.npmjs.org/' + repo, {
       strictSSL: false,
