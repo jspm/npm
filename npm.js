@@ -30,7 +30,8 @@ var downloadBuiltin = function(name, version, outDir, callback, errback) {
     fs.writeFile(outDir + path.sep + 'index.js', body, function(err) {
       if (err)
         return errback(err);
-      callback();
+        
+      lockDependencies(outDir, callback, errback);
     });
   });
 }
@@ -77,15 +78,15 @@ var moveFromTmpDir = function(tmpDir, outDir, callback, errback) {
 var lockDependencies = function(dir, callback, errback) {
   // read package.json and get dependencies and versions
   fs.readFile(dir + path.sep + 'package.json', function(err, data) {
-    if (err)
-      return callback();
+    if (err && err.code != 'ENOENT')
+      return errback();
 
     var pjson;
     try {
       pjson = JSON.parse(data + '');
     }
     catch (e) {
-      return callback();
+      pjson = {};
     }
 
     pjson.dependencies = pjson.dependencies || {};
@@ -149,7 +150,7 @@ NPMLocation.prototype = {
   getVersions: function(repo, callback, errback) {
     
     if (nodeBuiltins.indexOf(repo) != -1)
-      return callback({ '0.0.1': 'IUHFBFHWMC' });
+      return callback({ '0.0.2': 'IUHFBFHWMD' });
 
     request('https://registry.npmjs.org/' + repo, {
       strictSSL: false,
