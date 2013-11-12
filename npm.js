@@ -107,6 +107,9 @@ var lockDependencies = function(dir, callback, errback) {
 
     pjson.dependencyMap = replaceMap;
 
+    pjson.buildConfig = pjson.buildConfig || {};
+    pjson.buildConfig.uglify = pjson.buildConfig.uglify === undefined ? pjson.buildConfig.uglify : true;
+
     // save back the package.json for further processing
     fs.writeFile(dir + path.sep + 'package.json', JSON.stringify(pjson, null, 2), function(err) {
       if (err)
