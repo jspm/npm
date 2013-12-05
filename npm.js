@@ -11,7 +11,7 @@ var exactVersionRegEx = /^(\d+)(\.\d+)(\.\d+)?$/;
 var tmpDir;
 
 var nodeBuiltins = ['assert', 'child_process', 'dgram', 'events', 'fs', 'https', 'net', 'path', 'process', 'querystring', 
-'stream', 'string_decoder', 'sys', 'timers', 'tls', 'tty', 'url', 'util'];
+'stream', 'string_decoder', 'sys', 'timers', 'tls', 'tty', 'url', 'util', 'http'];
 
 var NPMLocation = function(options) {
   this.baseDir = options.baseDir;
@@ -102,45 +102,23 @@ var lockDependencies = function(dir, callback, errback) {
         replaceMap[d] = 'npm:' + d;
     }
 
-    for (var i = 0; i < nodeBuiltins.length; i++)
-      replaceMap[nodeBuiltins[i]] = 'npm:' + nodeBuiltins[i];
+    replaceMap['*'] = 'npm:*';
     
 
-    pjson.dependencyMap = replaceMap;
+    pjson.map = replaceMap;
+    pjson.format = 'cjs';
+
+    if (pjson.main) {
+      if (pjson.main.substr(0, 2) == './')
+        pjson.main = pjson.main.substr(2);
+      if (pjson.main.substr(pjson.main.length - 3, 3) == '.js')
+        pjson.main = pjson.main.substr(0, pjson.main.length - 3);
+    }
 
     pjson.buildConfig = pjson.buildConfig || {};
     pjson.buildConfig.uglify = pjson.buildConfig.uglify === undefined ? true : pjson.buildConfig.uglify;
 
-    // save back the package.json for further processing
-    fs.writeFile(dir + path.sep + 'package.json', JSON.stringify(pjson, null, 2), function(err) {
-      if (err)
-        return errback(err);
-
-      callback();
-    });
-
-  });
-}
-
-var cjsRequireRegEx = /require\s*\(\s*("([^"]+)"|'([^']+)')\s*\)/g;
-var replaceRequires = function(file, replaceMap, callback, errback) {
-  // replace require('some-module/here') with require('some-module@1.1/here')
-  fs.readFile(file, function(err, data) {
-    data = data + '';
-    
-    data = data.replace(cjsRequireRegEx, function(reqName, str, singleString, doubleString) {
-      var name = singleString || doubleString;
-      if (replaceMap[name])
-        return reqName.replace(name, replaceMap[name]);
-      else
-        return reqName;
-    });
-
-    fs.writeFile(file, data, function(err) {
-      if (err)
-        return errback(err);
-      callback();
-    });
+    callback(pjson);
   });
 }
 
