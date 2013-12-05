@@ -95,14 +95,12 @@ var lockDependencies = function(dir, callback, errback) {
     for (var d in pjson.dependencies) {
       var v = pjson.dependencies[d];
       if (v.substr(0, 1) == '~')
-        replaceMap[d] = 'npm:' + d + '@' + v.substr(1).split('.').splice(0, 2).join('.');
+        replaceMap['npm:' + d] = 'npm:' + d + '@' + v.substr(1).split('.').splice(0, 2).join('.');
       else if (v.match(exactVersionRegEx))
-        replaceMap[d] = 'npm:' + d + '@' + v;
+        replaceMap['npm:' + d] = 'npm:' + d + '@' + v;
       else
-        replaceMap[d] = 'npm:' + d;
+        replaceMap['npm:' + d] = 'npm:' + d;
     }
-
-    replaceMap['*'] = 'npm:*';
     
 
     pjson.map = replaceMap;
@@ -118,7 +116,54 @@ var lockDependencies = function(dir, callback, errback) {
     pjson.buildConfig = pjson.buildConfig || {};
     pjson.buildConfig.uglify = pjson.buildConfig.uglify === undefined ? true : pjson.buildConfig.uglify;
 
-    callback(pjson);
+    // glob all the js files and make jspm-compatible
+    glob(dir + '/**/*.js', function(err, files) {
+      if (err)
+        return errback(err);
+
+      if (!files.length)
+        return callback(pjson);
+
+      var doneCnt = 0;
+      for (var i = 0; i < files.length; i++)
+        convertRequires(files[i], function() {
+          doneCnt++;
+          if (doneCnt == files.length)
+            callback(pjson);
+        }, errback);
+    });
+  });
+}
+
+var cjsRequireRegEx = /require\s*\(\s*("([^"]+)"|'([^']+)')\s*\)/g;
+var convertRequires = function(file, callback, errback) {
+  // replace require('some-module/here') with require('some-module@1.1/here')
+  var changed = false;
+  fs.readFile(file, function(err, data) {
+    data = data + '';
+    
+    data = data.replace(cjsRequireRegEx, function(reqName, str, singleString, doubleString) {
+      var name = singleString || doubleString;
+      if (name.substr(name.length - 3, 3) == '.js') {
+        changed = true;
+        return reqName.replace(name, name.substr(0, name.length - 3));
+      }
+      else if (name.substr(0, 1) != '.') {
+        changed = true;
+        return reqName.replace(name, 'npm:' + name);
+      }
+      else
+        return reqName;
+    });
+
+    if (!changed)
+      return callback();
+
+    fs.writeFile(file, data, function(err) {
+      if (err)
+        return errback(err);
+      callback();
+    });
   });
 }
 
