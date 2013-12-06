@@ -104,13 +104,14 @@ var lockDependencies = function(dir, callback, errback) {
     
 
     pjson.map = replaceMap;
-    pjson.format = 'cjs';
 
     if (pjson.main) {
       if (pjson.main.substr(0, 2) == './')
         pjson.main = pjson.main.substr(2);
       if (pjson.main.substr(pjson.main.length - 3, 3) == '.js')
         pjson.main = pjson.main.substr(0, pjson.main.length - 3);
+      if (pjson.main == 'index')
+        delete pjson.main;
     }
 
     pjson.buildConfig = pjson.buildConfig || {};
