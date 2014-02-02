@@ -6,12 +6,14 @@ var rmdir = require('rmdir');
 var path = require('path');
 var glob = require('glob');
 
-var exactVersionRegEx = /^(\d+)(\.\d+)(\.\d+)?$/;
-
 var tmpDir;
 
-var nodeBuiltins = ['assert', 'child_process', 'dgram', 'events', 'fs', 'https', 'net', 'path', 'process', 'querystring', 
-'stream', 'string_decoder', 'sys', 'timers', 'tls', 'tty', 'url', 'util', 'http'];
+var nodeBuiltins = ['assert', 'buffer', 'console', 'constants', 'domain', 'events', 'http', 'https', 'os', 'path', 'punycode', 'querystring', 
+  'string_decorder', 'stream', 'timers', 'tls', 'tty', 'url', 'util', 'vm', 'zlib']
+
+// note these are not implemented:
+// child_process, cluster, crypto, dgram, dns, net, fs, readline, repl, tls
+
 
 var NPMLocation = function(options) {
   this.baseDir = options.baseDir;
@@ -19,26 +21,9 @@ var NPMLocation = function(options) {
   this.log = options.log === false ? false : true;
 }
 
-var downloadBuiltin = function(name, version, outDir, callback, errback) {
-  // download fs.js as index.js in builtin dir
-  request('https://github.jspm.io/jspm/node-browser-builtins@master/builtin/' + name + '.js', {
-    strictSSL: false
-  }, function(err, res, body) {
-    if (err)
-      return errback(err);
-
-    fs.writeFile(outDir + path.sep + 'index.js', body, function(err) {
-      if (err)
-        return errback(err);
-        
-      lockDependencies(outDir, callback, errback);
-    });
-  });
-}
-
 var version304Cache = {};
 
-var prepareDir = function(dir, callback, errback) {
+function prepareDir(dir, callback, errback) {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir);
     return callback();
@@ -52,7 +37,7 @@ var prepareDir = function(dir, callback, errback) {
   });
 }
 
-var moveFromTmpDir = function(tmpDir, outDir, callback, errback) {
+function moveFromTmpDir(tmpDir, outDir, callback, errback) {
   fs.readdir(tmpDir, function(err, files) {
     if (err)
       return errback(err);
@@ -75,108 +60,9 @@ var moveFromTmpDir = function(tmpDir, outDir, callback, errback) {
   });
 }
 
-var lockDependencies = function(dir, callback, errback) {
-  // read package.json and get dependencies and versions
-  fs.readFile(dir + path.sep + 'package.json', function(err, data) {
-    if (err && err.code != 'ENOENT')
-      return errback();
-
-    var pjson;
-    try {
-      pjson = JSON.parse(data + '');
-    }
-    catch (e) {
-      pjson = {};
-    }
-
-    pjson.dependencies = pjson.dependencies || {};
-
-    var replaceMap = {};
-    for (var d in pjson.dependencies) {
-      var v = pjson.dependencies[d];
-      if (v.substr(0, 1) == '~')
-        replaceMap['npm:' + d] = 'npm:' + d + '@' + v.substr(1).split('.').splice(0, 2).join('.');
-      else if (v.match(exactVersionRegEx))
-        replaceMap['npm:' + d] = 'npm:' + d + '@' + v;
-      else
-        replaceMap['npm:' + d] = 'npm:' + d;
-    }
-    
-
-    pjson.map = replaceMap;
-
-    if (pjson.main) {
-      if (pjson.main.substr(0, 2) == './')
-        pjson.main = pjson.main.substr(2);
-      if (pjson.main.substr(pjson.main.length - 3, 3) == '.js')
-        pjson.main = pjson.main.substr(0, pjson.main.length - 3);
-      // NB with config-based server can add this back
-      //if (pjson.main == 'index')
-      //  delete pjson.main;
-    }
-
-    pjson.buildConfig = pjson.buildConfig || {};
-    pjson.buildConfig.uglify = pjson.buildConfig.uglify === undefined ? true : pjson.buildConfig.uglify;
-
-    // glob all the js files and make jspm-compatible
-    glob(dir + '/**/*.js', function(err, files) {
-      if (err)
-        return errback(err);
-
-      if (!files.length)
-        return callback(pjson);
-
-      var doneCnt = 0;
-      for (var i = 0; i < files.length; i++)
-        convertRequires(files[i], function() {
-          doneCnt++;
-          if (doneCnt == files.length)
-            callback(pjson);
-        }, errback);
-    });
-  });
-}
-
-var cjsRequireRegEx = /require\s*\(\s*("([^"]+)"|'([^']+)')\s*\)/g;
-var convertRequires = function(file, callback, errback) {
-  // replace require('some-module/here') with require('some-module@1.1/here')
-  var changed = false;
-  fs.readFile(file, function(err, data) {
-    data = data + '';
-    
-    data = data.replace(cjsRequireRegEx, function(reqName, str, singleString, doubleString) {
-      var name = singleString || doubleString;
-      if (name.substr(name.length - 3, 3) == '.js') {
-        changed = true;
-        return reqName.replace(name, name.substr(0, name.length - 3));
-      }
-      else if (name.substr(0, 1) != '.') {
-        changed = true;
-        return reqName.replace(name, 'npm:' + name);
-      }
-      else
-        return reqName;
-    });
-
-    if (!changed)
-      return callback();
-
-    fs.writeFile(file, data, function(err) {
-      if (err)
-        return errback(err);
-      callback();
-    });
-  });
-}
-
-
 NPMLocation.prototype = {
   degree: 1,
   getVersions: function(repo, callback, errback) {
-    
-    if (nodeBuiltins.indexOf(repo) != -1)
-      return callback({ '0.0.2': 'IUHFBFHWMD' });
-
     request('https://registry.npmjs.org/' + repo, {
       strictSSL: false,
       headers: version304Cache[repo] ? {
@@ -222,62 +108,83 @@ NPMLocation.prototype = {
     if (this.log)
       console.log(new Date() + ': Requesting package npm:' + repo);
 
-    prepareDir(outDir, function() {
+    request({
+      uri: 'https://registry.npmjs.org/' + repo + '/-/' + repo + '-' + version + '.tgz', 
+      headers: { 'accept': 'application/octet-stream' },
+      strictSSL: false
+    })
+    .on('response', function(npmRes) {
 
-      if (nodeBuiltins.indexOf(repo) != -1)
-        return downloadBuiltin(repo, version, outDir, callback, errback);
+      if (npmRes.statusCode != 200)
+        return errback('Bad response code ' + npmRes.statusCode);
+      
+      if (npmRes.headers['content-length'] > 10000000)
+        return errback('Response too large.');
 
-      request({
-        uri: 'https://registry.npmjs.org/' + repo + '/-/' + repo + '-' + version + '.tgz', 
-        headers: { 'accept': 'application/octet-stream' },
-        strictSSL: false
-      })
-      .on('response', function(npmRes) {
+      npmRes.pause();
 
-        if (npmRes.statusCode != 200)
-          return errback('Bad response code ' + npmRes.statusCode);
-        
-        if (npmRes.headers['content-length'] > 10000000)
-          return errback('Response too large.');
+      var gzip = zlib.createGunzip();
 
-        npmRes.pause();
+      var tmpPath = tmpDir + path.sep + repo;
 
-        var gzip = zlib.createGunzip();
+      prepareDir(tmpPath, function() {
 
-        var tmpPath = tmpDir + path.sep + repo;
+        npmRes
+        .pipe(gzip)
+        .pipe(tar.Extract({ path: tmpPath }))
+        .on('error', errback)
+        .on('end', function() {
 
-        prepareDir(tmpPath, function() {
+          // list the dir to get the package folder (older NPM had a varied name)
+          fs.readdir(path.resolve(tmpPath), function(err, files) {
 
-          npmRes
-          .pipe(gzip)
-          .pipe(tar.Extract({ path: tmpPath }))
-          .on('error', errback)
-          .on('end', function() {
+            if (err || !files || !files.length)
+              return errback();
 
-            // list the dir to get the package folder (older NPM had a varied name)
-            fs.readdir(path.resolve(tmpPath), function(err, files) {
+            moveFromTmpDir(path.resolve(tmpPath, files[0]), outDir, function() {
 
-              if (err || !files || !files.length)
-                return errback();
+              // read package.json and get dependencies and versions
+              fs.readFile(outDir + path.sep + 'package.json', function(err, data) {
+                if (err && err.code != 'ENOENT')
+                  return errback();
 
-              moveFromTmpDir(path.resolve(tmpPath, files[0]), outDir, function() {
+                var pjson;
+                try {
+                  pjson = JSON.parse(data + '');
+                }
+                catch (e) {
+                  pjson = {};
+                }
 
-                lockDependencies(outDir, callback, errback);
+                pjson.dependencies = pjson.dependencies || {};
+                pjson.registry = pjson.registry || 'npm';
 
-              }, errback);
+                if (pjson.registry == 'npm') {
+                  // NB future versions could use pjson.engines.node to ensure correct builtin node version compatibility
+                  pjson.dependencies['nodelibs'] = 'jspm/nodelibs#0.0.2';
+                  pjson.map = pjson.map || {};
+                  for (var i = 0; i < nodeBuiltins.length; i++)
+                    pjson.map[nodeBuiltins[i]] = 'github:jspm/nodelibs/' + nodeBuiltins[i];
 
-            });
+                  pjson.map['process'] = '@@nodeProcess';
+                }
+
+                callback(pjson);
+
+              });
+
+            }, errback);
 
           });
 
-          npmRes.resume();
+        });
 
-        }, errback);
+        npmRes.resume();
 
-      })
-      .on('error', errback);
+      }, errback);
 
-    });
+    })
+    .on('error', errback);
 
   }
 };
