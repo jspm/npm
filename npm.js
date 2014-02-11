@@ -23,43 +23,6 @@ var NPMLocation = function(options) {
 
 var version304Cache = {};
 
-function prepareDir(dir, callback, errback) {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir);
-    return callback();
-  }
-
-  rmdir(dir, function(err) {
-    if (err)
-      return errback(err);
-    fs.mkdirSync(dir);
-    callback();
-  });
-}
-
-function moveFromTmpDir(tmpDir, outDir, callback, errback) {
-  fs.readdir(tmpDir, function(err, files) {
-    if (err)
-      return errback(err);
-
-    var fileCnt = files.length;
-    
-    if (!fileCnt)
-      return errback();
-
-    var renamedFiles = 0;
-    for (var i = 0; i < files.length; i++) {
-      fs.rename(tmpDir + '/' + files[i], path.resolve(outDir, files[i]), function(err) {
-        if (err)
-          return errback(err);
-        renamedFiles++;
-        if (renamedFiles == fileCnt)
-          callback();
-      });
-    }
-  });
-}
-
 NPMLocation.prototype = {
   degree: 1,
   getVersions: function(repo, callback, errback) {
@@ -125,63 +88,49 @@ NPMLocation.prototype = {
 
       var gzip = zlib.createGunzip();
 
-      var tmpPath = tmpDir + path.sep + repo;
+      npmRes
+      .pipe(gzip)
+      .pipe(tar.Extract({ path: outDir, strip: 1 }))
+      .on('error', errback)
+      .on('end', function() {
 
-      prepareDir(tmpPath, function() {
+        // read package.json and get dependencies and versions
+        fs.readFile(outDir + path.sep + 'package.json', function(err, data) {
+          if (err && err.code != 'ENOENT')
+            return errback();
 
-        npmRes
-        .pipe(gzip)
-        .pipe(tar.Extract({ path: tmpPath }))
-        .on('error', errback)
-        .on('end', function() {
+          var pjson;
+          try {
+            pjson = JSON.parse(data + '');
+          }
+          catch (e) {
+            pjson = {};
+          }
 
-          // list the dir to get the package folder (older NPM had a varied name)
-          fs.readdir(path.resolve(tmpPath), function(err, files) {
+          pjson.dependencies = pjson.dependencies || {};
+          pjson.registry = pjson.registry || 'npm';
 
-            if (err || !files || !files.length)
-              return errback();
+          if (pjson.registry == 'npm') {
+            // NB future versions could use pjson.engines.node to ensure correct builtin node version compatibility
+            pjson.dependencies['nodelibs'] = 'jspm/nodelibs#0.0.2';
+            pjson.map = pjson.map || {};
+            for (var i = 0; i < nodeBuiltins.length; i++)
+              pjson.map[nodeBuiltins[i]] = 'github:jspm/nodelibs/' + nodeBuiltins[i];
 
-            moveFromTmpDir(path.resolve(tmpPath, files[0]), outDir, function() {
+            pjson.map['process'] = '@@nodeProcess';
+          }
 
-              // read package.json and get dependencies and versions
-              fs.readFile(outDir + path.sep + 'package.json', function(err, data) {
-                if (err && err.code != 'ENOENT')
-                  return errback();
+          pjson.buildConfig = pjson.buildConfig || {};
+          if (!('minify' in pjson.buildConfig))
+            pjson.buildConfig.minify = true;
 
-                var pjson;
-                try {
-                  pjson = JSON.parse(data + '');
-                }
-                catch (e) {
-                  pjson = {};
-                }
-
-                pjson.dependencies = pjson.dependencies || {};
-                pjson.registry = pjson.registry || 'npm';
-
-                if (pjson.registry == 'npm') {
-                  // NB future versions could use pjson.engines.node to ensure correct builtin node version compatibility
-                  pjson.dependencies['nodelibs'] = 'jspm/nodelibs#0.0.2';
-                  pjson.map = pjson.map || {};
-                  for (var i = 0; i < nodeBuiltins.length; i++)
-                    pjson.map[nodeBuiltins[i]] = 'github:jspm/nodelibs/' + nodeBuiltins[i];
-
-                  pjson.map['process'] = '@@nodeProcess';
-                }
-
-                callback(pjson);
-
-              });
-
-            }, errback);
-
-          });
+          callback(pjson);
 
         });
 
-        npmRes.resume();
+      });
 
-      }, errback);
+      npmRes.resume();
 
     })
     .on('error', errback);
