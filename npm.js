@@ -115,10 +115,12 @@ NPMLocation.prototype = {
             pjson.dependencies['nodelibs'] = 'jspm/nodelibs#0.0.2';
             pjson.map = pjson.map || {};
             for (var i = 0; i < nodeBuiltins.length; i++)
-              pjson.map[nodeBuiltins[i]] = 'github:jspm/nodelibs/' + nodeBuiltins[i];
+              pjson.map[nodeBuiltins[i]] = 'github:jspm/nodelibs@0.0.2/' + nodeBuiltins[i];
 
             pjson.map['process'] = '@@nodeProcess';
           }
+
+          if (pjson.dependencies[process])
 
           pjson.buildConfig = pjson.buildConfig || {};
           if (!('minify' in pjson.buildConfig))
