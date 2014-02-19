@@ -120,8 +120,6 @@ NPMLocation.prototype = {
             pjson.map['process'] = '@@nodeProcess';
           }
 
-          if (pjson.dependencies[process])
-
           pjson.buildConfig = pjson.buildConfig || {};
           if (!('minify' in pjson.buildConfig))
             pjson.buildConfig.minify = true;
