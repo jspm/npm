@@ -124,6 +124,12 @@ NPMLocation.prototype = {
           if (!('minify' in pjson.buildConfig))
             pjson.buildConfig.minify = true;
 
+          // ignore directory handling for NodeJS, as npm doesn't do it
+          delete pjson.directories;
+          // ignore files and ignore as npm already does this for us
+          delete pjson.files;
+          delete pjson.ignore;
+
           callback(pjson);
 
         });
