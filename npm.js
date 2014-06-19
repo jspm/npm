@@ -9,7 +9,7 @@ var glob = require('glob');
 var tmpDir;
 
 var nodeBuiltins = ['assert', 'buffer', 'console', 'constants', 'domain', 'events', 'fs', 'http', 'https', 'os', 'path', 'punycode', 'querystring', 
-  'string_decorder', 'stream', 'timers', 'tls', 'tty', 'url', 'util', 'vm', 'zlib']
+  'string_decoder', 'stream', 'timers', 'tls', 'tty', 'url', 'util', 'vm', 'zlib']
 
 // note these are not implemented:
 // child_process, cluster, crypto, dgram, dns, net, readline, repl, tls
