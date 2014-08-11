@@ -1,6 +1,6 @@
 {
   "name": "jspm-npm",
-  "version": "0.2.7",
+  "version": "0.3.0",
   "description": "",
   "main": "npm.js",
   "scripts": {
@@ -16,9 +16,11 @@
     "url": "https://github.com/jspm/npm/issues"
   },
   "dependencies": {
-    "tar": "~0.1.18",
-    "rmdir": "~1.0.0",
     "glob": "~3.2.6",
-    "request": "~2.27.0"
+    "request": "~2.27.0",
+    "rmdir": "~1.0.0",
+    "rsvp": "^3.0.12",
+    "tar": "~0.1.18",
+    "systemjs-builder": "0.1.0"
   }
 }

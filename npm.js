@@ -1,3 +1,5 @@
+var Promise = require('rsvp').Promise;
+var asp = require('rsvp').denodeify;
 var request = require('request');
 var zlib = require('zlib');
 var tar = require('tar');
@@ -6,10 +8,12 @@ var rmdir = require('rmdir');
 var path = require('path');
 var glob = require('glob');
 
+var cjsCompiler = require('systemjs-builder/compilers/cjs');
+
 var tmpDir;
 
-var nodeBuiltins = ['assert', 'buffer', 'console', 'constants', 'domain', 'events', 'fs', 'http', 'https', 'os', 'path', 'punycode', 'querystring', 
-  'string_decoder', 'stream', 'timers', 'tls', 'tty', 'url', 'util', 'vm', 'zlib']
+var nodeBuiltins = ['assert', 'buffer', 'console', 'constants', 'domain', 'events', 'fs', 'http', 'https', 'os', 'path', 'process', 'punycode', 'querystring', 
+  'string_decoder', 'stream', 'timers', 'tls', 'tty', 'url', 'util', 'vm', 'zlib'];
 
 // note these are not implemented:
 // child_process, cluster, crypto, dgram, dns, net, readline, repl, tls
@@ -21,47 +25,136 @@ var NPMLocation = function(options) {
   this.log = options.log === false ? false : true;
 }
 
-var version304Cache = {};
+var bufferRegEx = /(^\s*|[}{\(\);,\n=:\?\&]\s*)Buffer/;
+var processRegEx = /(^\s*|[}{\(\);,\n=:\?\&]\s*)process/;
+
+var cmdCommentRegEx = /^\s*#/;
+
+function processNpmFiles(dir, pjson, log) {
+  return asp(glob)(dir + path.sep + '**' + path.sep + '*.js')
+  .then(function(files) {
+    return Promise.all(files.map(function(file) {
+      var curSource;
+
+      return Promise.resolve()
+
+      // create an index.js forwarding module if necessary
+      .then(function() {
+        if (path.basename(file) == 'index.js' && path.dirname(file) != dir) {
+          var dirname = path.dirname(file);
+          return asp(fs.writeFile)(dirname + '.js', 'module.exports = "./' + path.basename(dirname) + '/index.js";');
+        }        
+      })
+
+      .then(function() {
+        return asp(fs.readFile)(file);
+      })
+      .then(function(source) {
+        curSource = source;
+        var changed = false;
+        source = source.toString();
+
+        if (source.match(cmdCommentRegEx))
+          source = '//' + source;
+
+        // Note an alternative here would be to use https://github.com/substack/insert-module-globals
+        var usesBuffer = source.match(bufferRegEx), usesProcess = source.match(processRegEx);
+
+        if (usesBuffer || usesProcess) {
+          changed = true;
+          source = "(function(" + (usesBuffer && 'Buffer' || '') + (usesBuffer && usesProcess && ", " || '') + (usesProcess && 'process' || '') + ") {" + source
+              + "\n})(" + (usesBuffer && "require('buffer').Buffer" || '') + (usesBuffer && usesProcess && ", " || '') + (usesProcess && "require('process')" || '') + ");";
+        }
+
+        // remap require statements, with mappings:
+        // require('file.json') -> require('file.json!')
+        // require('dir/') -> require('dir/index')
+        // require('file.js') -> require('file')
+        // finally we map builtins to the adjusted module
+        return cjsCompiler.remap(source, function(dep) {
+          if (dep.substr(dep.length - 5, 5) == '.json') {
+            pjson.dependencies['json'] = '*';
+            changed = true;
+            return dep + '!';
+          }
+          if (dep.substr(dep.length - 1, 1) == '/') {
+            changed = true;
+            dep = dep + 'index';
+          }
+          else if (dep.substr(dep.length - 3, 3) == '.js') {
+            changed = true;
+            dep = dep.substr(0, dep.length - 3);
+          }
+
+          var firstPart = dep.substr(0, dep.indexOf('/')) || dep;
+          var builtinIndex = nodeBuiltins.indexOf(firstPart);
+          if (builtinIndex != -1) {
+            changed = true;
+            var name = nodeBuiltins[builtinIndex];
+            dep = 'github:jspm/nodelibs@0.0.3/' + name + dep.substr(firstPart.length);
+          }
+          return dep;
+        }, file)
+        .then(function(output) {
+          if (!changed)
+            return;
+          return asp(fs.writeFile)(file, output.source);
+        }, function(err) {
+          if (log)
+            console.log(err);
+        });
+      });
+
+    }));
+  });
+}
+
+
+
+var versionCache = {};
 
 NPMLocation.prototype = {
   degree: 1,
   getVersions: function(repo, callback, errback) {
     request('https://registry.npmjs.org/' + repo, {
       strictSSL: false,
-      headers: version304Cache[repo] ? {
-        'if-none-match': version304Cache[repo]
+      headers: versionCache[repo] ? {
+        'if-none-match': versionCache[repo].hash
       } : {}
     }, function(err, res, body) {
       if (err)
         return errback(err);
 
       if (res.statusCode == 304)
-        return callback(version304Cache[repo]);
+        return callback(versionCache[repo].versions);
 
       if (res.statusCode != 200)
         return callback();
 
-      var versions;
+      var versions = {};
+      var versionData;
       
       try {
-        versions = versions || JSON.parse(body).versions;
+        versionData = JSON.parse(body).versions;
       }
       catch(e) {
         return errback(e);
       }
 
-      if (!versions)
+      if (!versionData)
         return callback();
 
-      for (var v in versions) {
-        if (versions[v].dist && versions[v].dist.shasum)
-          versions[v] = versions[v].dist.shasum;
-        else
-          delete versions[v];
+      for (var v in versionData) {
+        if (versionData[v].dist && versionData[v].dist.shasum)
+          versions[v] = versionData[v].dist.shasum;
       }
 
       if (res.headers.etag)
-        version304Cache[res.headers.etag] = versions;
+        versionCache[repo] = {
+          hash: res.headers.etag,
+          versions: versions,
+          versionData: versionData
+        };
 
       callback(versions);
     });
@@ -71,8 +164,13 @@ NPMLocation.prototype = {
     if (this.log)
       console.log(new Date() + ': Requesting package npm:' + repo);
 
+    var versionData = versionCache[repo] && versionCache[repo].versionData;
+    var tarball = 'https://registry.npmjs.org/' + repo + '/-/' + repo + '-' + version + '.tgz';
+    if (versionData && versionData[version])
+      tarball = versionData[version].dist.tarball;
+
     request({
-      uri: 'https://registry.npmjs.org/' + repo + '/-/' + repo + '-' + version + '.tgz', 
+      uri: tarball,
       headers: { 'accept': 'application/octet-stream' },
       strictSSL: false
     })
@@ -110,39 +208,43 @@ NPMLocation.prototype = {
           pjson.dependencies = pjson.dependencies || {};
           pjson.registry = pjson.registry || 'npm';
 
+          // this allows users to opt-out of npm require assumptions
+          // but still use the npm registry anyway
           if (pjson.registry == 'npm') {
             // NB future versions could use pjson.engines.node to ensure correct builtin node version compatibility
-            pjson.dependencies['nodelibs'] = 'jspm/nodelibs#0.0.2';
-            pjson.map = pjson.map || {};
-            for (var i = 0; i < nodeBuiltins.length; i++)
-              pjson.map[nodeBuiltins[i]] = 'github:jspm/nodelibs@0.0.2/' + nodeBuiltins[i];
+            pjson.dependencies['nodelibs'] = 'jspm/nodelibs#0.0.3';
 
-            pjson.map['process'] = '@@nodeProcess';
+            // peer dependencies are just dependencies in jspm
+            if (pjson.peerDependencies) {
+              for (var d in pjson.peerDependencies)
+                pjson.dependencies[d] = pjson.peerDependencies[d];
+            }
+
+            pjson.format = pjson.format || 'cjs';
+
+            pjson.buildConfig = pjson.buildConfig || {};
+            if (!('minify' in pjson.buildConfig))
+              pjson.buildConfig.minify = true;
+
+            // ignore directory handling for NodeJS, as npm doesn't do it
+            delete pjson.directories;
+            // ignore files and ignore as npm already does this for us
+            delete pjson.files;
+            delete pjson.ignore;
+
+            processNpmFiles(outDir, pjson, this.log).then(function() {
+              callback(pjson);
+            }, errback);
           }
-
-          pjson.format = pjson.format || 'cjs';
-
-          pjson.buildConfig = pjson.buildConfig || {};
-          if (!('minify' in pjson.buildConfig))
-            pjson.buildConfig.minify = true;
-
-          // ignore directory handling for NodeJS, as npm doesn't do it
-          delete pjson.directories;
-          // ignore files and ignore as npm already does this for us
-          delete pjson.files;
-          delete pjson.ignore;
-
-          callback(pjson);
-
+          else
+            callback(pjson);
         });
 
       });
 
       npmRes.resume();
-
     })
     .on('error', errback);
-
   }
 };
 
