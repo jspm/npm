@@ -1,6 +1,6 @@
 {
   "name": "jspm-npm",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "",
   "main": "npm.js",
   "scripts": {
@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "glob": "~3.2.6",
-    "request": "~2.27.0",
+    "request": "~2.40.0",
     "rmdir": "~1.0.0",
     "rsvp": "^3.0.12",
     "tar": "~0.1.18",
