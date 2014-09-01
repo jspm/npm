@@ -20,6 +20,7 @@ var tmpDir, registryURL;
 var NPMLocation = function(options) {
   registryURL = options.registryURL || 'https://registry.npmjs.org';
   tmpDir = options.tmpDir;
+  this.remote = options.remote;
 }
 
 var bufferRegEx = /(^\s*|[}{\(\);,\n=:\?\&]\s*)Buffer/;
@@ -39,6 +40,12 @@ NPMLocation.prototype = {
       package: parts[0],
       path: parts.splice(1).join('/')
     };
+  },
+
+  configure: function(config) {
+    config.name = 'npm';
+    config.remote = 'https://npm.jspm.io';
+    return Promise.resolve(config);
   },
 
   lookup: function(repo) {
@@ -83,7 +90,7 @@ NPMLocation.prototype = {
     });
   },
 
-  loadConfig: function(repo, version, hash) {
+  getPackageConfig: function(repo, version, hash) {
     var pjson = lookupCache[repo] && lookupCache[repo].packageData[version];
     if (!pjson)
       throw 'Package.json lookup not found';
