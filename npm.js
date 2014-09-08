@@ -33,6 +33,12 @@ var cmdCommentRegEx = /^\s*#/;
 
 var lookupCache = {};
 
+NPMLocation.configure = function(config) {
+  config.name = 'npm';
+  config.remote = 'https://npm.jspm.io';
+  return Promise.resolve(config);
+}
+
 NPMLocation.prototype = {
   parse: function(name) {
     var parts = name.split('/');
@@ -40,12 +46,6 @@ NPMLocation.prototype = {
       package: parts[0],
       path: parts.splice(1).join('/')
     };
-  },
-
-  configure: function(config) {
-    config.name = 'npm';
-    config.remote = 'https://npm.jspm.io';
-    return Promise.resolve(config);
   },
 
   lookup: function(repo) {
