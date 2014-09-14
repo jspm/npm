@@ -15,12 +15,20 @@ var nodeBuiltins = ['assert', 'buffer', 'console', 'constants', 'domain', 'event
 // note these are not implemented:
 // child_process, cluster, crypto, dgram, dns, net, readline, repl, tls
 
-var tmpDir, registryURL;
+var tmpDir, registryURL, auth;
 
 var NPMLocation = function(options) {
-  registryURL = options.registryURL || 'https://registry.npmjs.org';
+  this.name = options.name;
+  // default needed during upgrade time period
+  registryURL = options.registry || 'https://registry.npmjs.org';
   tmpDir = options.tmpDir;
   this.remote = options.remote;
+
+  if (options.username && options.password)
+    auth = {
+      user: options.username,
+      pass: options.password
+    };
 }
 
 var bufferRegEx = /(^\s*|[}{\(\);,\n=:\?\&]\s*)Buffer/;
@@ -33,10 +41,33 @@ var cmdCommentRegEx = /^\s*#/;
 
 var lookupCache = {};
 
-NPMLocation.configure = function(config) {
-  config.name = 'npm';
-  config.remote = 'https://npm.jspm.io';
-  return Promise.resolve(config);
+NPMLocation.configure = function(config, ui) {
+  config.remote = config.remote || 'https://npm.jspm.io';
+  return ui.input('npm registry to use', config.registry || 'https://registry.npmjs.org')
+  .then(function(registry) {
+    config.registry = registry;
+
+    return ui.confirm('Would you like to configure authentication?', false);
+  })
+  .then(function(auth) {
+    if (!auth)
+      return;
+
+    return Promise.resolve()
+    .then(function() {
+      return ui.input('Enter your npm username');
+    })
+    .then(function(username) {
+      config.username = username;
+      return ui.input('Enter your npm password', null, true);
+    })
+    .then(function(password) {
+      config.password = password;
+    });
+  })
+  .then(function() {
+    return config;
+  });
 }
 
 NPMLocation.prototype = {
@@ -49,8 +80,10 @@ NPMLocation.prototype = {
   },
 
   lookup: function(repo) {
+    var self = this;
     return asp(request)(registryURL + '/' + repo, {
       strictSSL: false,
+      auth: auth,
       headers: lookupCache[repo] ? {
         'if-none-match': lookupCache[repo].hash
       } : {}
@@ -60,6 +93,9 @@ NPMLocation.prototype = {
 
       if (res.statusCode == 404)
         return { notfound: true };
+
+      if (res.statusCode == 401)
+        throw 'Invalid authentication details. Run %jspm endpoint config ' + self.name + '% to reconfigure.';
 
       if (res.statusCode != 200)
         throw 'Invalid status code ' + res.statusCode;
@@ -99,11 +135,13 @@ NPMLocation.prototype = {
     }
 
     pjson.dependencies = pjson.dependencies || {};
-    pjson.registry = pjson.registry || 'npm';
+    pjson.registry = pjson.registry || this.name;
 
     // this allows users to opt-out of npm require assumptions
     // but still use the npm registry anyway
-    if (pjson.registry == 'npm') {
+    // disabled due to registry meaning confusion
+    // alternative opt-out property may be used in future
+    //if (pjson.registry == 'npm') {
       // NB future versions could use pjson.engines.node to ensure correct builtin node version compatibility
       pjson.dependencies['nodelibs'] = 'jspm/nodelibs#0.0.3';
 
@@ -124,7 +162,7 @@ NPMLocation.prototype = {
       // ignore files and ignore as npm already does this for us
       delete pjson.files;
       delete pjson.ignore;
-    }
+    //}
 
     return pjson;
   },
@@ -146,7 +184,7 @@ NPMLocation.prototype = {
         if (npmRes.statusCode != 200)
           return reject('Bad response code ' + npmRes.statusCode);
         
-        if (npmRes.headers['content-length'] > 10000000)
+        if (npmRes.headers['content-length'] > 50000000)
           return reject('Response too large.');
 
         npmRes.pause();
