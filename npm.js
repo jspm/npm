@@ -220,7 +220,7 @@ NPMLocation.prototype = {
         .then(function() {
           if (path.basename(file) == 'index.js' && path.dirname(file) != dir) {
             var dirname = path.dirname(file);
-            return asp(fs.writeFile)(dirname + '.js', 'module.exports = "./' + path.basename(dirname) + '/index.js";');
+            return asp(fs.writeFile)(dirname + '.js', 'module.exports = require("./' + path.basename(dirname) + '/index");\n');
           }        
         })
 
