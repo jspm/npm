@@ -6,6 +6,7 @@ var tar = require('tar');
 var fs = require('fs');
 var path = require('path');
 var glob = require('glob');
+var nodeSemver = require('semver');
 
 var cjsCompiler = require('systemjs-builder/compilers/cjs');
 
@@ -15,6 +16,17 @@ var nodeBuiltins = ['assert', 'buffer', 'console', 'constants', 'domain', 'event
 // note these are not implemented:
 // child_process, cluster, crypto, dgram, dns, net, readline, repl, tls
 
+function clone(a) {
+  var b = {};
+  for (var p in a) {
+    if (typeof a[p] == 'object')
+      b[p] = clone(a[p]);
+    else
+      b[p] = a[p];
+  }
+  return b;
+}
+
 var tmpDir, registryURL, auth;
 
 var NPMLocation = function(options) {
@@ -23,6 +35,16 @@ var NPMLocation = function(options) {
   registryURL = options.registry || 'https://registry.npmjs.org';
   tmpDir = options.tmpDir;
   this.remote = options.remote;
+
+  // load the local registry cache
+  try {
+    lookupCache = JSON.parse(fs.readFileSync(path.resolve(tmpDir, 'registry-cache.json')));
+  }
+  catch(e) {
+    if (!(e.code == 'ENOENT' || e instanceof SyntaxError))
+      throw e;
+    lookupCache = {};
+  }
 
   if (options.username && options.password)
     auth = {
@@ -39,7 +61,7 @@ var metaPartRegEx = /\/\*.*\*\/|\/\/[^\n]*|"[^"]+"\s*;?|'[^']+'\s*;?/g;
 
 var cmdCommentRegEx = /^\s*#/;
 
-var lookupCache = {};
+var lookupCache;
 
 NPMLocation.configure = function(config, ui) {
   config.remote = config.remote || 'https://npm.jspm.io';
@@ -79,6 +101,10 @@ NPMLocation.prototype = {
     };
   },
 
+  locate: function(repo) {
+
+  },
+
   lookup: function(repo) {
     var self = this;
     return asp(request)(registryURL + '/' + repo, {
@@ -89,7 +115,7 @@ NPMLocation.prototype = {
       } : {}
     }).then(function(res) {
       if (res.statusCode == 304)
-        return lookupCache[repo].versions;
+        return { versions: lookupCache[repo].versions };
 
       if (res.statusCode == 404)
         return { notfound: true };
@@ -134,7 +160,10 @@ NPMLocation.prototype = {
       throw 'Package.json lookup hash mismatch';
     }
 
-    pjson.dependencies = pjson.dependencies || {};
+    pjson = clone(pjson);
+
+    pjson.dependencies = parseDependencies(pjson.dependencies || {});
+
     pjson.registry = pjson.registry || this.name;
 
     // this allows users to opt-out of npm require assumptions
@@ -143,7 +172,7 @@ NPMLocation.prototype = {
     // alternative opt-out property may be used in future
     //if (pjson.registry == 'npm') {
       // NB future versions could use pjson.engines.node to ensure correct builtin node version compatibility
-      pjson.dependencies['nodelibs'] = 'jspm/nodelibs#0.0.3';
+      pjson.dependencies['nodelibs'] = 'github:jspm/nodelibs@0.0.4';
 
       // peer dependencies are just dependencies in jspm
       if (pjson.peerDependencies) {
@@ -326,7 +355,174 @@ NPMLocation.prototype = {
     .then(function() {
       return buildErrors;
     });
+  },
+
+  dispose: function() {
+    // save the lookup cache
+    fs.writeFileSync(path.resolve(tmpDir, 'registry-cache.json'), JSON.stringify(lookupCache));
   }
 };
+
+// convert NodeJS or Bower dependencies into jspm-compatible dependencies
+var githubRegEx = /^git(\+[^:]+)?:\/\/github.com\/(.+)/;
+var protocolRegEx = /^[^\:\/]+:\/\//;
+function parseDependencies(dependencies) {
+  // do dependency parsing
+  var outDependencies = {};
+  for (var d in dependencies) (function(d) {
+    var dep = dependencies[d];
+
+    var match, name, version = '';
+
+    // 1. git://github.com/name/repo.git#version -> git:name/repo@version
+    if (match = dep.match(githubRegEx)) {
+      dep = match[2];
+      name = 'github:' + dep.split('#')[0];
+      version = dep.split('#')[1];
+      if (name.substr(name.length - 4, 4) == '.git')
+        name = name.substr(0, name.length - 4);
+    }
+    
+    // 2. url:// -> not supported
+    else if (dep.match(protocolRegEx))
+      throw 'Dependency ' + dep + ' not supported by jspm';
+
+    // 3. name/repo#version -> github:name/repo@version
+    else if (dep.split('/').length == 2) {
+      name = 'github:' + dep.split('#')[0];
+      version = dep.split('#')[1];
+    }
+
+    // 4. name#version -> name@version  (bower only)
+    else if ((match = dep.indexOf('#')) != -1) {
+      name = dep.substr(0, match);
+      version = dep.substr(match + 1);
+    }
+
+    // 5. version -> name@version
+    else {
+      name = d;
+      version = dep;
+    }
+
+    // in all of the above, the version is sanitized from a general semver range into a jspm-compatible version range
+    // if it is an exact semver, or a tag, just use it directly
+    if (!nodeSemver.valid(version)) {
+      if (version == '' || version == '*')
+        version = '';
+      else
+        var range = nodeSemver.validRange(version);
+
+      if (range == '*') {
+        name = 'through';
+        version = '*';
+      }
+
+      else if (range) {
+        // if it has OR semantics, we only support the last range
+        if (range.indexOf('||') != -1)
+          range = range.split('||').pop();
+
+        var rangeParts = range.split(' ');
+
+        // convert AND statements into a single lower bound and upper bound
+        // enforcing the lower bound as inclusive and the upper bound as exclusive
+        var lowerBound = null;
+        var upperBound = null;
+        for (var i = 0; i < rangeParts.length; i++) {
+          var part = rangeParts[i];
+          var a = part.charAt(0);
+          var b = part.charAt(1);
+
+          // get the version
+          var v = part;
+          if (b == '=')
+            v = part.substr(2);
+          else if (a == '>' || a == '<' || a == '=')
+            v = part.substr(1);
+
+          // and the operator
+          var gt = a == '>';
+          var lt = a == '<';
+
+          if (gt) {
+            // take the highest lower bound
+            if (!lowerBound || nodeSemver.gt(lowerBound, v))
+              lowerBound = v;
+          }
+          else if (lt) {
+            // take the lowest upper bound
+            if (!upperBound || nodeSemver.lt(upperBound, v))
+              upperBound = v;
+          }
+          else {
+            // equality
+            lowerBound = upperBound = part.substr(1);
+            break;
+          }
+        }
+
+        // for some reason nodeSemver adds "-0" when not appropriate
+        if (lowerBound && lowerBound.substr(lowerBound.length - 2, 2) == '-0')
+          lowerBound = lowerBound.substr(0, lowerBound.length - 2);
+        if (upperBound && upperBound.substr(upperBound.length - 2, 2) == '-0')
+          upperBound = upperBound.substr(0, upperBound.length - 2);
+
+        if (!upperBound && !lowerBound)
+          version = '';
+
+        // if no upperBound, then this is just compatible with the lower bound
+        else if (!upperBound) {
+          if (lowerBound.substr(0, 4) == '0.0.')
+            version = '0.0';
+          else if (lowerBound.substr(0, 2) == '0.')
+            version = '0';
+          else
+            version = '^' + lowerBound;
+        }
+
+        // if no lowerBound, use the upperBound directly
+        else if (!lowerBound)
+          version = upperBound;
+
+        else {
+          var lowerParts = lowerBound.split('.');
+          var upperParts = upperBound.split('.');
+
+          // if upperbound is the exact major, and the lower bound is the exact version below, set to exact major
+          if (parseInt(upperParts[0]) == parseInt(lowerParts[0]) + 1 && upperParts[1] == '0' && upperParts[2] == '0' && lowerParts[1] == '0' && lowerParts[2] == '0')
+            version = lowerParts[0];
+
+          // if upperbound is exact minor, and the lower bound is the exact minor below, set to exact minor
+          else if (upperParts[0] == lowerParts[0] && parseInt(upperParts[1]) == parseInt(lowerParts[1]) + 1 && upperParts[2] == '0' && lowerParts[2] == '0')
+            version = lowerParts[0] + '.' + lowerParts[1];
+
+          // if crossing a major boundary -> ^upper major
+          else if (upperParts[0] > lowerParts[0] && !(upperParts[1] == '0' && upperParts[2] == '0'))
+            version = '^' + upperParts[0];
+          
+          // if crossing a minor boundary -> ^lower minor > 1, ^upper minor < 1
+          else if (upperParts[0] == lowerParts[0] && upperParts[1] > lowerParts[1] && upperParts[2] != '0') {
+            if (upperParts[0] != 0)
+              version = '^' + lowerParts[0] + '.' + lowerParts[1];
+            else
+              version = '^0.' + upperParts[1];
+          }
+          // if lowerbound is a 0 version, just treat as @0
+          else if (lowerParts[0] == 0) {
+            version = lowerParts[1] == 0 ? '0.0' : '0';
+          }
+          // otherwise ^lowerbound
+          else {
+            version = '^' + lowerBound;
+          }
+        }
+      }
+    }
+    
+    outDependencies[d] = name + (version ? '@' + version : '');
+  })(d);
+  return outDependencies;
+}
 
 module.exports = NPMLocation;
