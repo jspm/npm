@@ -13,6 +13,8 @@ var cjsCompiler = require('systemjs-builder/compilers/cjs');
 var nodeBuiltins = ['assert', 'buffer', 'console', 'constants', 'domain', 'events', 'fs', 'http', 'https', 'os', 'path', 'process', 'punycode', 'querystring', 
   'string_decoder', 'stream', 'timers', 'tls', 'tty', 'url', 'util', 'vm', 'zlib'];
 
+var nodelibs = 'github:jspm/nodelibs@0.0.4';
+
 // note these are not implemented:
 // child_process, cluster, crypto, dgram, dns, net, readline, repl, tls
 
@@ -101,10 +103,6 @@ NPMLocation.prototype = {
     };
   },
 
-  locate: function(repo) {
-
-  },
-
   lookup: function(repo) {
     var self = this;
     return asp(request)(registryURL + '/' + repo, {
@@ -172,7 +170,7 @@ NPMLocation.prototype = {
     // alternative opt-out property may be used in future
     //if (pjson.registry == 'npm') {
       // NB future versions could use pjson.engines.node to ensure correct builtin node version compatibility
-      pjson.dependencies['nodelibs'] = 'github:jspm/nodelibs@0.0.4';
+      pjson.dependencies['nodelibs'] = nodelibs;
 
       // peer dependencies are just dependencies in jspm
       if (pjson.peerDependencies) {
@@ -338,7 +336,7 @@ NPMLocation.prototype = {
             if (builtinIndex != -1) {
               changed = true;
               var name = nodeBuiltins[builtinIndex];
-              dep = 'github:jspm/nodelibs@0.0.3/' + name + dep.substr(firstPart.length);
+              dep = nodelibs + '/' + name + dep.substr(firstPart.length);
             }
             return dep;
           }, file)
@@ -414,11 +412,11 @@ function parseDependencies(dependencies) {
         var range = nodeSemver.validRange(version);
 
       if (range == '*') {
-        name = 'through';
-        version = '*';
+        outDependencies[d] = '*';
+        return;
       }
 
-      else if (range) {
+      if (range) {
         // if it has OR semantics, we only support the last range
         if (range.indexOf('||') != -1)
           range = range.split('||').pop();
