@@ -10,13 +10,13 @@ var nodeSemver = require('semver');
 
 var cjsCompiler = require('systemjs-builder/compilers/cjs');
 
-var nodeBuiltins = ['assert', 'buffer', 'console', 'constants', 'domain', 'events', 'fs', 'http', 'https', 'os', 'path', 'process', 'punycode', 'querystring', 
+var nodeBuiltins = ['assert', 'buffer', 'console', 'constants', 'crypto', 'domain', 'events', 'fs', 'http', 'https', 'os', 'path', 'process', 'punycode', 'querystring', 
   'string_decoder', 'stream', 'timers', 'tls', 'tty', 'url', 'util', 'vm', 'zlib'];
 
-var nodelibs = 'github:jspm/nodelibs@0.0.4';
+var nodelibs = 'github:jspm/nodelibs@0.0.5';
 
 // note these are not implemented:
-// child_process, cluster, crypto, dgram, dns, net, readline, repl, tls
+// child_process, cluster, dgram, dns, net, readline, repl, tls
 
 function clone(a) {
   var b = {};
@@ -55,8 +55,8 @@ var NPMLocation = function(options) {
     };
 }
 
-var bufferRegEx = /(^\s*|[}{\(\);,\n=:\?\&]\s*)Buffer/;
-var processRegEx = /(^\s*|[}{\(\);,\n=:\?\&]\s*)process/;
+var bufferRegEx = /(?:^|[^$_a-zA-Z\xA0-\uFFFF.])Buffer/;
+var processRegEx = /(?:^|[^$_a-zA-Z\xA0-\uFFFF.])process/;
 
 var metaRegEx = /^(\s*\/\*.*\*\/|\s*\/\/[^\n]*|\s*"[^"]+"\s*;?|\s*'[^']+'\s*;?)+/;
 var metaPartRegEx = /\/\*.*\*\/|\/\/[^\n]*|"[^"]+"\s*;?|'[^']+'\s*;?/g;
@@ -191,6 +191,37 @@ NPMLocation.prototype = {
       delete pjson.ignore;
     //}
 
+
+  // if there is a "browser" object, convert it into map config for browserify support
+    if (typeof pjson.browser == 'string')
+      pjson.main = pjson.browser;
+
+    if (typeof pjson.browser == 'object') {
+      pjson.map = pjson.map || {};
+      for (var b in pjson.browser) {
+        var mapping = pjson.browser[b];
+
+        if (mapping === false) {
+          mapping = '@empty';
+        }
+        else if (typeof mapping == 'string') {
+          if (b.substr(b.length - 3, 3) == '.js')
+            b = b.substr(0, b.length - 3);
+          if (mapping.substr(mapping.length - 3, 3) == '.js')
+            mapping = mapping.substr(0, mapping.length - 3);
+          
+          // NB local maps not supported currently
+          // should create pointer alias files
+          if (b.substr(0, 2) == './')
+            continue;
+        }
+        else
+          continue;
+
+        pjson.map[b] = pjson.map[b] || mapping;
+      }
+    }
+
     return pjson;
   },
 
@@ -232,6 +263,13 @@ NPMLocation.prototype = {
 
   build: function(pjson, dir) {
 
+    var packageName = pjson.name;
+    var main = pjson.main || 'index';
+    if (main.substr(main.length - 3, 3) == '.js')
+      main = main.substr(0, main.length - 3);
+    if (main.substr(0, 2) == './')
+      main = main.substr(2);
+
     var buildErrors = [];
 
     return asp(glob)(dir + path.sep + '**' + path.sep + '*.js')
@@ -243,7 +281,7 @@ NPMLocation.prototype = {
 
         return Promise.resolve()
 
-        // create an index.js forwarding module if necessary
+        // create an index.js forwarding module if necessary for directory requires
         .then(function() {
           if (path.basename(file) == 'index.js' && path.dirname(file) != dir) {
             var dirname = path.dirname(file);
@@ -315,6 +353,7 @@ NPMLocation.prototype = {
           // require('file.json') -> require('file.json!')
           // require('dir/') -> require('dir/index')
           // require('file.js') -> require('file')
+          // require('thisPackageName') -> require('../../index.js');
           // finally we map builtins to the adjusted module
           return cjsCompiler.remap(source, function(dep) {
             if (dep.substr(dep.length - 5, 5) == '.json') {
@@ -324,19 +363,24 @@ NPMLocation.prototype = {
             }
             if (dep.substr(dep.length - 1, 1) == '/') {
               changed = true;
-              dep = dep + 'index';
+              return dep + 'index';
             }
-            else if (dep.substr(dep.length - 3, 3) == '.js') {
+            if (dep.substr(dep.length - 3, 3) == '.js' && dep.indexOf('/') != -1) {
               changed = true;
-              dep = dep.substr(0, dep.length - 3);
+              return dep.substr(0, dep.length - 3);
             }
 
             var firstPart = dep.substr(0, dep.indexOf('/')) || dep;
+
+            // if a package requires its own name, give it itself
+            if (firstPart == packageName)
+              return path.relative(path.dirname(filename), main);
+
             var builtinIndex = nodeBuiltins.indexOf(firstPart);
             if (builtinIndex != -1) {
               changed = true;
               var name = nodeBuiltins[builtinIndex];
-              dep = nodelibs + '/' + name + dep.substr(firstPart.length);
+              return nodelibs + '/' + name + dep.substr(firstPart.length);
             }
             return dep;
           }, file)
