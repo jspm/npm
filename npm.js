@@ -192,7 +192,7 @@ NPMLocation.prototype = {
     //}
 
 
-  // if there is a "browser" object, convert it into map config for browserify support
+    // if there is a "browser" object, convert it into map config for browserify support
     if (typeof pjson.browser == 'string')
       pjson.main = pjson.browser;
 
@@ -210,8 +210,7 @@ NPMLocation.prototype = {
           if (mapping.substr(mapping.length - 3, 3) == '.js')
             mapping = mapping.substr(0, mapping.length - 3);
           
-          // NB local maps not supported currently
-          // should create pointer alias files
+          // we handle relative maps during the build phase
           if (b.substr(0, 2) == './')
             continue;
         }
@@ -270,6 +269,34 @@ NPMLocation.prototype = {
     if (main.substr(0, 2) == './')
       main = main.substr(2);
 
+    // prepare any aliases we need to create
+    var aliases = {};
+    if (typeof pjson.browser == 'object') {
+      var curAlias;
+      var curTarget;
+      for (var module in pjson.browser) {
+        curAlias = module;
+        curTarget = pjson.browser[module];
+
+        if (typeof curTarget != 'string')
+          continue;
+
+        // only looking at local aliases here
+        if (curAlias.substr(0, 2) != './')
+          continue;
+
+        if (curAlias.substr(0, 2) == './')
+          curAlias = curAlias.substr(2);
+        if (curAlias.substr(curAlias.length - 3, 3) == '.js')
+          curAlias = curAlias.substr(0, curAlias.length - 3);
+
+        if (curTarget.substr(curTarget.length - 3, 3) == '.js')
+          curTarget = curTarget.substr(0, curTarget.length - 3);
+
+        aliases[curAlias] = curTarget;
+      }
+    }
+
     var buildErrors = [];
 
     return asp(glob)(dir + path.sep + '**' + path.sep + '*.js')
@@ -292,10 +319,19 @@ NPMLocation.prototype = {
         .then(function() {
           return asp(fs.readFile)(file);
         })
+
         .then(function(source) {
           curSource = source;
           var changed = false;
           source = source.toString();
+
+          // if this file is an alias, intercept the source with an alias
+          if (aliases[filename]) {
+            var alias = aliases[filename];
+            var relAliasModule = alias.substr(0, 2) == './' ? path.relative(path.dirname(filename), alias.substr(2)) : alias;
+            source = 'module.exports = require("' + relAliasModule + '");\n';
+            changed = true;
+          }
 
           // at this point, only alter the source file if we're certain it is CommonJS in Node-style
 
