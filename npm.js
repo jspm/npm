@@ -160,37 +160,29 @@ NPMLocation.prototype = {
 
     pjson = clone(pjson);
 
+    // peer dependencies are just dependencies in jspm
+    if (pjson.peerDependencies) {
+      for (var d in pjson.peerDependencies)
+        pjson.dependencies[d] = pjson.peerDependencies[d];
+    }
+
     pjson.dependencies = parseDependencies(pjson.dependencies || {});
 
     pjson.registry = pjson.registry || this.name;
 
-    // this allows users to opt-out of npm require assumptions
-    // but still use the npm registry anyway
-    // disabled due to registry meaning confusion
-    // alternative opt-out property may be used in future
-    //if (pjson.registry == 'npm') {
-      // NB future versions could use pjson.engines.node to ensure correct builtin node version compatibility
-      pjson.dependencies['nodelibs'] = nodelibs;
+    pjson.dependencies['nodelibs'] = nodelibs;
 
-      // peer dependencies are just dependencies in jspm
-      if (pjson.peerDependencies) {
-        for (var d in pjson.peerDependencies)
-          pjson.dependencies[d] = pjson.peerDependencies[d];
-      }
+    pjson.format = pjson.format || 'cjs';
 
-      pjson.format = pjson.format || 'cjs';
+    pjson.buildConfig = pjson.buildConfig || {};
+    if (!('minify' in pjson.buildConfig))
+      pjson.buildConfig.minify = true;
 
-      pjson.buildConfig = pjson.buildConfig || {};
-      if (!('minify' in pjson.buildConfig))
-        pjson.buildConfig.minify = true;
-
-      // ignore directory handling for NodeJS, as npm doesn't do it
-      delete pjson.directories;
-      // ignore files and ignore as npm already does this for us
-      delete pjson.files;
-      delete pjson.ignore;
-    //}
-
+    // ignore directory handling for NodeJS, as npm doesn't do it
+    delete pjson.directories;
+    // ignore files and ignore as npm already does this for us
+    delete pjson.files;
+    delete pjson.ignore;
 
     // if there is a "browser" object, convert it into map config for browserify support
     if (typeof pjson.browser == 'string')
