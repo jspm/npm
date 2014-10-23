@@ -383,43 +383,46 @@ NPMLocation.prototype = {
           // require('file.js') -> require('file')
           // require('thisPackageName') -> require('../../index.js');
           // finally we map builtins to the adjusted module
-          return cjsCompiler.remap(source, function(dep) {
-            if (dep.substr(dep.length - 5, 5) == '.json') {
-              pjson.dependencies['json'] = '*';
-              changed = true;
-              return dep + '!';
-            }
-            if (dep.substr(dep.length - 1, 1) == '/') {
-              changed = true;
-              return dep + 'index';
-            }
-            if (dep.substr(dep.length - 3, 3) == '.js' && dep.indexOf('/') != -1) {
-              changed = true;
-              return dep.substr(0, dep.length - 3);
-            }
+          return Promise.resolve()
+          .then(function() {
+            return cjsCompiler.remap(source, function(dep) {
+              if (dep.substr(dep.length - 5, 5) == '.json') {
+                pjson.dependencies['json'] = '*';
+                changed = true;
+                return dep + '!';
+              }
+              if (dep.substr(dep.length - 1, 1) == '/') {
+                changed = true;
+                return dep + 'index';
+              }
+              if (dep.substr(dep.length - 3, 3) == '.js' && dep.indexOf('/') != -1) {
+                changed = true;
+                return dep.substr(0, dep.length - 3);
+              }
 
-            var firstPart = dep.substr(0, dep.indexOf('/')) || dep;
+              var firstPart = dep.substr(0, dep.indexOf('/')) || dep;
 
-            // if a package requires its own name, give it itself
-            if (firstPart == packageName)
-              return path.relative(path.dirname(filename), main);
+              // if a package requires its own name, give it itself
+              if (firstPart == packageName)
+                return path.relative(path.dirname(filename), main);
 
-            var builtinIndex = nodeBuiltins.indexOf(firstPart);
-            if (builtinIndex != -1) {
-              changed = true;
-              var name = nodeBuiltins[builtinIndex];
-              return nodelibs + '/' + name + dep.substr(firstPart.length);
-            }
-            return dep;
-          }, file)
+              var builtinIndex = nodeBuiltins.indexOf(firstPart);
+              if (builtinIndex != -1) {
+                changed = true;
+                var name = nodeBuiltins[builtinIndex];
+                return nodelibs + '/' + name + dep.substr(firstPart.length);
+              }
+              return dep;
+            }, file);
+          })
           .then(function(output) {
             if (!changed)
               return;
-            return asp(fs.writeFile)(file, output.source);
+            return asp(fs.writeFile)(file, output && output.source || source);
           }, function(err) {
             buildErrors.push(err);
           });
-        });
+        })
       }));
     })
     .then(function() {
