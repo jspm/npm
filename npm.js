@@ -152,8 +152,7 @@ NPMLocation.prototype = {
 
   getPackageConfig: function(repo, version, hash) {
     var pjson = lookupCache[repo] && lookupCache[repo].packageData[version];
-    if (!pjson)
-      throw 'Package.json lookup not found';
+      
     if (hash && pjson.dist.shasum != hash) {
       throw 'Package.json lookup hash mismatch';
     }
@@ -217,11 +216,15 @@ NPMLocation.prototype = {
   },
 
   download: function(repo, version, hash, outDir) {
+    var self = this; 
     return new Promise(function(resolve, reject) {
       var versionData = lookupCache[repo] && lookupCache[repo].packageData[version];
 
+      // ensure endpoint is stateless -> shouldn't have to assume lookup is called before download
       if (!versionData)
-        throw 'Package.json lookup not found';
+        return self.lookup(repo).then(function() {
+          return self.download(repo, version, hash, outDir).then(resolve, reject);
+        });
 
       request({
         uri: versionData.dist.tarball,
