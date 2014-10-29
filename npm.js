@@ -63,7 +63,7 @@ var metaPartRegEx = /\/\*.*\*\/|\/\/[^\n]*|"[^"]+"\s*;?|'[^']+'\s*;?/g;
 
 var cmdCommentRegEx = /^\s*#/;
 
-var lookupCache;
+var lookupCache, lookupPromises = {};
 
 NPMLocation.configure = function(config, ui) {
   config.remote = config.remote || 'https://npm.jspm.io';
@@ -104,8 +104,11 @@ NPMLocation.prototype = {
   },
 
   lookup: function(repo) {
+    if (lookupPromises[repo])
+      return lookupPromises[repo];
+
     var self = this;
-    return asp(request)(registryURL + '/' + repo, {
+    return lookupPromises[repo] = asp(request)(registryURL + '/' + repo, {
       strictSSL: false,
       auth: auth,
       headers: lookupCache[repo] ? {
@@ -146,13 +149,20 @@ NPMLocation.prototype = {
           packageData: packageData
         };
 
+      lookupPromises[repo] = undefined;
       return { versions: versions };
-    });
+    })
   },
 
   getPackageConfig: function(repo, version, hash) {
     var pjson = lookupCache[repo] && lookupCache[repo].packageData[version];
-      
+
+    // ensure endpoint is stateless -> shouldn't have to assume lookup is called first
+    if (!pjson)
+      return this.lookup(repo).then(function() {
+        return this.getPackageConfig(repo, version, hash);
+      });
+
     if (hash && pjson.dist.shasum != hash) {
       throw 'Package.json lookup hash mismatch';
     }
@@ -435,6 +445,7 @@ NPMLocation.prototype = {
 
   dispose: function() {
     // save the lookup cache
+    // NB we should really save separate files, and update it as we go instead of through dispose
     fs.writeFileSync(path.resolve(tmpDir, 'registry-cache.json'), JSON.stringify(lookupCache));
   }
 };
