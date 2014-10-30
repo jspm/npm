@@ -158,10 +158,12 @@ NPMLocation.prototype = {
     var pjson = lookupCache[repo] && lookupCache[repo].packageData[version];
 
     // ensure endpoint is stateless -> shouldn't have to assume lookup is called first
-    if (!pjson)
-      return this.lookup(repo).then(function() {
-        return this.getPackageConfig(repo, version, hash);
+    if (!pjson) {
+      var self = this;
+      return self.lookup(repo).then(function() {
+        return self.getPackageConfig(repo, version, hash);
       });
+    }
 
     if (hash && pjson.dist.shasum != hash) {
       throw 'Package.json lookup hash mismatch';
