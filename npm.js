@@ -456,6 +456,7 @@ NPMLocation.prototype = {
 // convert NodeJS or Bower dependencies into jspm-compatible dependencies
 var githubRegEx = /^git(\+[^:]+)?:\/\/github.com\/(.+)/;
 var protocolRegEx = /^[^\:\/]+:\/\//;
+var semverRegEx = /^(\d+)(?:\.(\d+)(?:\.(\d+)(?:-([\da-z-]+(?:\.[\da-z-]+)*)(?:\+([\da-z-]+(?:\.[\da-z-]+)*))?)?)?)?$/i;
 function parseDependencies(dependencies) {
   // do dependency parsing
   var outDependencies = {};
@@ -483,24 +484,20 @@ function parseDependencies(dependencies) {
       version = dep.split('#')[1];
     }
 
-    // 4. name#version -> name@version  (bower only)
-    else if ((match = dep.indexOf('#')) != -1) {
-      name = dep.substr(0, match);
-      version = dep.substr(match + 1);
-    }
-
-    // 5. version -> name@version
+    // 4. version -> name@version
     else {
       name = d;
       version = dep;
     }
 
-    // in all of the above, the version is sanitized from a general semver range into a jspm-compatible version range
+    // otherwise, we convert an npm range into something jspm-compatible
     // if it is an exact semver, or a tag, just use it directly
     if (!nodeSemver.valid(version)) {
       if (version == '' || version == '*')
         version = '';
-      else
+      
+      // if we have a semver or fuzzy range, just keep as-is
+      else if (version.indexOf(/[ <>=]/) != -1 || !version.substr(1).match(semverRegEx) || !version.substr(0, 1).match(/[\^\~]/))
         var range = nodeSemver.validRange(version);
 
       if (range == '*') {
@@ -517,8 +514,7 @@ function parseDependencies(dependencies) {
 
         // convert AND statements into a single lower bound and upper bound
         // enforcing the lower bound as inclusive and the upper bound as exclusive
-        var lowerBound = null;
-        var upperBound = null;
+        var lowerBound, upperBound, lEq, uEq;
         for (var i = 0; i < rangeParts.length; i++) {
           var part = rangeParts[i];
           var a = part.charAt(0);
@@ -537,17 +533,22 @@ function parseDependencies(dependencies) {
 
           if (gt) {
             // take the highest lower bound
-            if (!lowerBound || nodeSemver.gt(lowerBound, v))
+            if (!lowerBound || nodeSemver.gt(lowerBound, v)) {
               lowerBound = v;
+              lEq = b == '=';
+            }
           }
           else if (lt) {
             // take the lowest upper bound
-            if (!upperBound || nodeSemver.lt(upperBound, v))
+            if (!upperBound || nodeSemver.lt(upperBound, v)) {
               upperBound = v;
+              uEq = b == '=';
+            }
           }
           else {
             // equality
             lowerBound = upperBound = part.substr(1);
+            lEq = uEq = true;
             break;
           }
         }
@@ -558,54 +559,103 @@ function parseDependencies(dependencies) {
         if (upperBound && upperBound.substr(upperBound.length - 2, 2) == '-0')
           upperBound = upperBound.substr(0, upperBound.length - 2);
 
-        if (!upperBound && !lowerBound)
+        var lowerSemver, upperSemver;
+
+        if (lowerBound) {
+          lowerSemver = lowerBound.match(semverRegEx);
+          lowerSemver[1] = parseInt(lowerSemver[1], 10);
+          lowerSemver[2] = parseInt(lowerSemver[2], 10);
+          lowerSemver[3] = parseInt(lowerSemver[3], 10);
+          if (!lEq) {
+            if (!lowerSemver[4])
+              lowerSemver[4] = '0';
+            // NB support incrementing existing preleases
+          }
+        }
+
+        if (upperBound) {
+          upperSemver = upperBound.match(semverRegEx);
+          upperSemver[1] = parseInt(upperSemver[1], 10);
+          upperSemver[2] = parseInt(upperSemver[2], 10);
+          upperSemver[3] = parseInt(upperSemver[3], 10);
+        }
+
+        if (!upperBound && !lowerBound) {
           version = '';
+        }
 
         // if no upperBound, then this is just compatible with the lower bound
         else if (!upperBound) {
-          if (lowerBound.substr(0, 4) == '0.0.')
+          if (lowerSemver[1] == 0 && lowerSemver[2] == 0)
             version = '0.0';
-          else if (lowerBound.substr(0, 2) == '0.')
+          else if (lowerSemver[1] == 0)
             version = '0';
           else
-            version = '^' + lowerBound;
+            version = '^' + getVersion(lowerSemver);
         }
 
-        // if no lowerBound, use the upperBound directly
-        else if (!lowerBound)
-          version = upperBound;
+        // if no lowerBound, use the upperBound directly, with sensible decrementing if necessary
+        else if (!lowerBound) {
+
+          if (uEq) {
+            version = upperBound;
+          }
+
+          else {
+            if (!upperSemver[4]) {
+              if (upperSemver[3] > 0) {
+                upperSemver[3]--;
+              }
+              else if (upperSemver[2] > 0) {
+                upperSemver[2]--;
+                upperSemver[3] = 0;
+              }
+              else if (upperSemver[1] > 0) {
+                upperSemver[1]--;
+                upperSemver[2] = 0;
+                upperSemver[3] = 0;
+              }
+            }
+            else {
+              upperSemver[4] = undefined;
+            }
+            version = getVersion(upperSemver);
+          }
+        }
 
         else {
-          var lowerParts = lowerBound.split('.');
-          var upperParts = upperBound.split('.');
+          // if upper bound is inclusive, use it
+          if (uEq)
+            version = upperBound;
 
-          // if upperbound is the exact major, and the lower bound is the exact version below, set to exact major
-          if (parseInt(upperParts[0]) == parseInt(lowerParts[0]) + 1 && upperParts[1] == '0' && upperParts[2] == '0' && lowerParts[1] == '0' && lowerParts[2] == '0')
-            version = lowerParts[0];
+          // if upper bound is exact major
+          else if (upperSemver[2] == 0 && upperSemver[3] == 0 && !upperSemver[4]) {
 
-          // if upperbound is exact minor, and the lower bound is the exact minor below, set to exact minor
-          else if (upperParts[0] == lowerParts[0] && parseInt(upperParts[1]) == parseInt(lowerParts[1]) + 1 && upperParts[2] == '0' && lowerParts[2] == '0')
-            version = lowerParts[0] + '.' + lowerParts[1];
-
-          // if crossing a major boundary -> ^upper major
-          else if (upperParts[0] > lowerParts[0] && !(upperParts[1] == '0' && upperParts[2] == '0'))
-            version = '^' + upperParts[0];
-          
-          // if crossing a minor boundary -> ^lower minor > 1, ^upper minor < 1
-          else if (upperParts[0] == lowerParts[0] && upperParts[1] > lowerParts[1] && upperParts[2] != '0') {
-            if (upperParts[0] != 0)
-              version = '^' + lowerParts[0] + '.' + lowerParts[1];
+            // if previous major is 0
+            if (upperSemver[1] - 1 == 0) {
+              version = '0';
+            }
+            else {
+              // if lower bound is major below, we are semver compatible
+              if (lowerSemver[1] == upperSemver[1] - 1)
+                version = '^' + getVersion(lowerSemver);
+              // otherwise we are semver compatible with the previous exact major
+              else
+                version = '^' + (upperSemver[1] - 1);
+            }
+          }
+          // if upper bound is exact minor
+          else if (upperSemver[3] == 0 && !upperSemver[4]) {
+            // if lower bound is minor below, we are fuzzy compatible
+            if (lowerSemver[2] = upperSemver[2] - 1)
+              version = '~' + getVersion(lowerSemver);
+            // otherwise we are fuzzy compatible with previous
             else
-              version = '^0.' + upperParts[1];
+              version = '~' + upperSemver[1] + '.' + (upperSemver[2] - 1);
           }
-          // if lowerbound is a 0 version, just treat as @0
-          else if (lowerParts[0] == 0) {
-            version = lowerParts[1] == 0 ? '0.0' : '0';
-          }
-          // otherwise ^lowerbound
-          else {
-            version = '^' + lowerBound;
-          }
+          // if upper bound is exact version -> use exact
+          else
+            throw 'Unable to translate npm version ' + version + ' into a jspm range.';
         }
       }
     }
@@ -614,5 +664,10 @@ function parseDependencies(dependencies) {
   })(d);
   return outDependencies;
 }
+
+function getVersion(semver) {
+  return semver[1] + '.' + semver[2] + '.' + semver[3] + (semver[4] ? '-' + semver[4] : '');
+}
+NPMLocation.parseDependencies = parseDependencies;
 
 module.exports = NPMLocation;
