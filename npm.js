@@ -172,12 +172,13 @@ NPMLocation.prototype = {
     pjson = clone(pjson);
 
     // peer dependencies are just dependencies in jspm
+    pjson.dependencies = pjson.dependencies || {};
     if (pjson.peerDependencies) {
       for (var d in pjson.peerDependencies)
         pjson.dependencies[d] = pjson.peerDependencies[d];
     }
 
-    pjson.dependencies = parseDependencies(pjson.dependencies || {});
+    pjson.dependencies = parseDependencies(pjson.dependencies);
 
     pjson.registry = pjson.registry || this.name;
 
