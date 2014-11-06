@@ -321,7 +321,7 @@ NPMLocation.prototype = {
           if (path.basename(file) == 'index.js' && path.dirname(file) != dir) {
             var dirname = path.dirname(file);
             return asp(fs.writeFile)(dirname + '.js', 'module.exports = require("./' + path.basename(dirname) + '/index");\n');
-          }        
+          }
         })
 
         .then(function() {
@@ -408,8 +408,15 @@ NPMLocation.prototype = {
                 return dep + '!';
               }
               if (dep.substr(dep.length - 1, 1) == '/') {
-                changed = true;
-                return dep + 'index';
+                // if the folder is the package itself, make it a require to this name
+                if (path.resolve(path.dirname(file), dep) == dir) {
+                  changed = true;
+                  return path.relative(path.dirname(filename), main);
+                }
+                else {
+                  changed = true;
+                  return dep + 'index';
+                }
               }
               if (dep.substr(dep.length - 3, 3) == '.js' && dep.indexOf('/') != -1) {
                 changed = true;
