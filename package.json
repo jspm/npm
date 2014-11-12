@@ -1,6 +1,6 @@
 {
   "name": "jspm-npm",
-  "version": "0.8.6",
+  "version": "0.10.0",
   "description": "",
   "main": "npm.js",
   "scripts": {
@@ -21,7 +21,7 @@
     "rmdir": "~1.0.0",
     "rsvp": "^3.0.12",
     "semver": "^4.0.3",
-    "systemjs-builder": "~0.2.0",
+    "systemjs-builder": "~0.3.0",
     "tar": "~0.1.18"
   }
 }

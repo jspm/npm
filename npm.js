@@ -48,6 +48,11 @@ var NPMLocation = function(options) {
     lookupCache = {};
   }
 
+  if (lookupCache['__@versionString'] != options.versionString)
+    lookupCache = {};
+
+  lookupCache['__@versionString'] = options.versionString;
+
   if (options.username && options.password)
     auth = {
       user: options.username,
@@ -63,7 +68,7 @@ var metaPartRegEx = /\/\*.*\*\/|\/\/[^\n]*|"[^"]+"\s*;?|'[^']+'\s*;?/g;
 
 var cmdCommentRegEx = /^\s*#/;
 
-var lookupCache, lookupPromises = {};
+var lookupCache;
 
 NPMLocation.configure = function(config, ui) {
   config.remote = config.remote || 'https://npm.jspm.io';
@@ -95,6 +100,9 @@ NPMLocation.configure = function(config, ui) {
 }
 
 NPMLocation.prototype = {
+
+  nodelibs: nodelibs,
+
   parse: function(name) {
     var parts = name.split('/');
     return {
@@ -104,15 +112,12 @@ NPMLocation.prototype = {
   },
 
   lookup: function(repo) {
-    if (lookupPromises[repo])
-      return lookupPromises[repo];
-
     var self = this;
-    return lookupPromises[repo] = asp(request)(registryURL + '/' + repo, {
+    return asp(request)(registryURL + '/' + repo, {
       strictSSL: false,
       auth: auth,
       headers: lookupCache[repo] ? {
-        'if-none-match': lookupCache[repo].hash
+        'if-none-match': lookupCache[repo].eTag
       } : {}
     }).then(function(res) {
       if (res.statusCode == 304)
@@ -139,35 +144,28 @@ NPMLocation.prototype = {
 
       for (var v in packageData) {
         if (packageData[v].dist && packageData[v].dist.shasum)
-          versions[v] = packageData[v].dist.shasum;
+          versions[v] = {
+            hash: packageData[v].dist.shasum,
+            meta: packageData[v]
+          };
       }
 
       if (res.headers.etag)
         lookupCache[repo] = {
-          hash: res.headers.etag,
-          versions: versions,
-          packageData: packageData
+          eTag: res.headers.etag,
+          versions: versions
         };
 
-      lookupPromises[repo] = undefined;
       return { versions: versions };
-    })
+    });
   },
 
-  getPackageConfig: function(repo, version, hash) {
-    var pjson = lookupCache[repo] && lookupCache[repo].packageData[version];
+  getPackageConfig: function(repo, version, hash, pjson) {
+    if (!pjson)
+      throw 'Package.json meta not provided in endpoint request';
 
-    // ensure endpoint is stateless -> shouldn't have to assume lookup is called first
-    if (!pjson) {
-      var self = this;
-      return self.lookup(repo).then(function() {
-        return self.getPackageConfig(repo, version, hash);
-      });
-    }
-
-    if (hash && pjson.dist.shasum != hash) {
+    if (hash && pjson.dist.shasum != hash)
       throw 'Package.json lookup hash mismatch';
-    }
 
     pjson = clone(pjson);
 
@@ -228,17 +226,9 @@ NPMLocation.prototype = {
     return pjson;
   },
 
-  download: function(repo, version, hash, outDir) {
+  download: function(repo, version, hash, versionData, outDir) {
     var self = this; 
     return new Promise(function(resolve, reject) {
-      var versionData = lookupCache[repo] && lookupCache[repo].packageData[version];
-
-      // ensure endpoint is stateless -> shouldn't have to assume lookup is called before download
-      if (!versionData)
-        return self.lookup(repo).then(function() {
-          return self.download(repo, version, hash, outDir).then(resolve, reject);
-        });
-
       request({
         uri: versionData.dist.tarball,
         headers: { 'accept': 'application/octet-stream' },
