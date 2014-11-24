@@ -392,6 +392,8 @@ NPMLocation.prototype = {
           return Promise.resolve()
           .then(function() {
             return cjsCompiler.remap(source, function(dep) {
+              if (dep == '.' || dep == '..')
+                dep += '/';
               if (dep.substr(dep.length - 5, 5) == '.json') {
                 pjson.dependencies['json'] = '*';
                 changed = true;
