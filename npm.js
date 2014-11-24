@@ -13,10 +13,10 @@ var cjsCompiler = require('systemjs-builder/compilers/cjs');
 var nodeBuiltins = ['assert', 'buffer', 'console', 'constants', 'crypto', 'domain', 'events', 'fs', 'http', 'https', 'os', 'path', 'process', 'punycode', 'querystring', 
   'string_decoder', 'stream', 'timers', 'tls', 'tty', 'url', 'util', 'vm', 'zlib'];
 
-var nodelibs = 'github:jspm/nodelibs@0.0.5';
+// server-only builtins
+nodeBuiltins = nodeBuiltins.concat(['child_process', 'cluster', 'dgram', 'dns', 'net', 'readline', 'repl', 'tls']);
 
-// note these are not implemented:
-// child_process, cluster, dgram, dns, net, readline, repl, tls
+var nodelibs = 'github:jspm/nodelibs@0.0.6';
 
 function clone(a) {
   var b = {};
