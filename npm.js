@@ -16,7 +16,7 @@ var nodeBuiltins = ['assert', 'buffer', 'console', 'constants', 'crypto', 'domai
 // server-only builtins
 nodeBuiltins = nodeBuiltins.concat(['child_process', 'cluster', 'dgram', 'dns', 'net', 'readline', 'repl', 'tls']);
 
-var nodelibs = 'github:jspm/nodelibs@0.0.6';
+var nodelibs = 'github:jspm/nodelibs@0.0.7';
 
 function clone(a) {
   var b = {};
