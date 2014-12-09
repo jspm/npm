@@ -658,7 +658,10 @@ function parseDependencies(dependencies) {
         }
       }
     }
-    
+
+    if (version == 'latest')
+      version = '*';
+
     outDependencies[d] = name + (version ? '@' + version : '');
   })(d);
   return outDependencies;
