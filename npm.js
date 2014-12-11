@@ -10,7 +10,7 @@ var nodeSemver = require('semver');
 
 var cjsCompiler = require('systemjs-builder/compilers/cjs');
 
-var nodeBuiltins = ['assert', 'buffer', 'console', 'constants', 'crypto', 'domain', 'events', 'fs', 'http', 'https', 'os', 'path', 'process', 'punycode', 'querystring', 
+var nodeBuiltins = ['assert', 'buffer', 'console', 'constants', 'crypto', 'domain', 'events', 'fs', 'http', 'https', 'os', 'path', 'process', 'punycode', 'querystring',
   'string_decoder', 'stream', 'timers', 'tls', 'tty', 'url', 'util', 'vm', 'zlib'];
 
 // server-only builtins
@@ -113,7 +113,8 @@ NPMLocation.prototype = {
 
   lookup: function(repo) {
     var self = this;
-    return asp(request)(registryURL + '/' + repo, {
+
+    return asp(request)(registryURL + '/' + encodeURIComponent(repo), {
       strictSSL: false,
       auth: auth,
       headers: lookupCache[repo] ? {
@@ -134,7 +135,7 @@ NPMLocation.prototype = {
 
       var versions = {};
       var packageData;
-      
+
       try {
         packageData = JSON.parse(res.body).versions;
       }
@@ -211,7 +212,7 @@ NPMLocation.prototype = {
             b = b.substr(0, b.length - 3);
           if (mapping.substr(mapping.length - 3, 3) == '.js')
             mapping = mapping.substr(0, mapping.length - 3);
-          
+
           // we handle relative maps during the build phase
           if (b.substr(0, 2) == './')
             continue;
@@ -227,7 +228,7 @@ NPMLocation.prototype = {
   },
 
   download: function(repo, version, hash, versionData, outDir) {
-    var self = this; 
+    var self = this;
     return new Promise(function(resolve, reject) {
       request({
         uri: versionData.dist.tarball,
@@ -238,7 +239,7 @@ NPMLocation.prototype = {
 
         if (npmRes.statusCode != 200)
           return reject('Bad response code ' + npmRes.statusCode);
-        
+
         if (npmRes.headers['content-length'] > 50000000)
           return reject('Response too large.');
 
@@ -344,7 +345,7 @@ NPMLocation.prototype = {
               var firstChar = metaParts[i].substr(0, 1);
               if (metaParts[i].substr(len - 1, 1) == ';')
                 len--;
-            
+
               if (firstChar != '"' && firstChar != "'")
                 continue;
 
@@ -367,7 +368,7 @@ NPMLocation.prototype = {
 
           if (metadata.format && metadata.format != 'cjs')
             return;
-          
+
           if (pjson.shim && pjson.shim[filename])
             return;
 
@@ -472,7 +473,7 @@ function parseDependencies(dependencies) {
       if (name.substr(name.length - 4, 4) == '.git')
         name = name.substr(0, name.length - 4);
     }
-    
+
     // 2. url:// -> not supported
     else if (dep.match(protocolRegEx))
       throw 'Dependency ' + dep + ' not supported by jspm';
@@ -494,7 +495,7 @@ function parseDependencies(dependencies) {
     if (!nodeSemver.valid(version)) {
       if (version == '' || version == '*')
         version = '';
-      
+
       // if we have a semver or fuzzy range, just keep as-is
       else if (version.indexOf(/[ <>=]/) != -1 || !version.substr(1).match(semverRegEx) || !version.substr(0, 1).match(/[\^\~]/))
         var range = nodeSemver.validRange(version);

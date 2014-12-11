@@ -22,5 +22,13 @@ testDependency('react', '0.12.x', 'react', 'react@~0.12.0');
 testDependency('react', '0.x', 'react', 'react@0');
 testDependency('react', '>=0.12.0', 'react', 'react@0');
 
+// Scoped
+testDependency('@scoped/react', '<0.12', '@scoped/react', '@scoped/react@0.11.0');
+testDependency('@scoped/react', '<0.12.0', '@scoped/react', '@scoped/react@0.11.0');
+testDependency('@scoped/react', '~0.1.1', '@scoped/react', '@scoped/react@~0.1.1');
+testDependency('@scoped/react', '^0.12', '@scoped/react', '@scoped/react@^0.12');
+testDependency('@scoped/react', '0.12.x', '@scoped/react', '@scoped/react@~0.12.0');
+testDependency('@scoped/react', '0.x', '@scoped/react', '@scoped/react@0');
+testDependency('@scoped/react', '>=0.12.0', '@scoped/react', '@scoped/react@0');
 
 console.log('Tests passed');
