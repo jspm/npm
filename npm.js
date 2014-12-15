@@ -18,6 +18,8 @@ nodeBuiltins = nodeBuiltins.concat(['child_process', 'cluster', 'dgram', 'dns', 
 
 var nodelibs = 'github:jspm/nodelibs@0.0.7';
 
+var defaultRegistry = 'https://registry.npmjs.org';
+
 function clone(a) {
   var b = {};
   for (var p in a) {
@@ -29,18 +31,35 @@ function clone(a) {
   return b;
 }
 
-var tmpDir, registryURL, auth;
+// avoid storing passwords as plain text in config
+function encodeCredentials(auth) {
+  return new Buffer(encodeURIComponent(auth.username) + ':' + encodeURIComponent(auth.password)).toString('base64');
+}
+function decodeCredentials(str) {
+  var auth = new Buffer(str, 'base64').toString('ascii').split(':');
+  return {
+    username: decodeURIComponent(auth[0]),
+    password: decodeURIComponent(auth[1])
+  };
+}
 
 var NPMLocation = function(options) {
   this.name = options.name;
   // default needed during upgrade time period
-  registryURL = options.registry || 'https://registry.npmjs.org';
-  tmpDir = options.tmpDir;
+  this.registryURL = options.registry || defaultRegistry;
+  this.tmpDir = options.tmpDir;
   this.remote = options.remote;
+
+  // NB deprecate
+  if (options.username && !options.auth) {
+    options.auth = encodeCredentials(options);
+    delete options.username;
+    delete options.password;
+  }
 
   // load the local registry cache
   try {
-    lookupCache = JSON.parse(fs.readFileSync(path.resolve(tmpDir, 'registry-cache.json')));
+    lookupCache = JSON.parse(fs.readFileSync(path.resolve(this.tmpDir, 'registry-cache.json')));
   }
   catch(e) {
     if (!(e.code == 'ENOENT' || e instanceof SyntaxError))
@@ -53,11 +72,13 @@ var NPMLocation = function(options) {
 
   lookupCache['__@versionString'] = options.versionString;
 
-  if (options.username && options.password)
-    auth = {
-      user: options.username,
-      pass: options.password
+  if (options.auth) {
+    var auth = decodeCredentials(options.auth);
+    this.auth = {
+      user: auth.username,
+      pass: auth.password
     };
+  }
 }
 
 var bufferRegEx = /(?:^|[^$_a-zA-Z\xA0-\uFFFF.])Buffer/;
@@ -70,28 +91,111 @@ var cmdCommentRegEx = /^\s*#/;
 
 var lookupCache;
 
+function configureCredentials(registry, _auth, ui) {
+  var auth = _auth || {};
+
+  return Promise.resolve()
+  .then(function() {
+    if (!auth.username) {
+      return ui.input('Enter your npm username')
+      .then(function(username) {
+        auth.username = username;
+        return ui.input('Enter your npm password', null, true);
+      })
+      .then(function(password) {
+        auth.password = password;
+      })
+    }
+  })
+  .then(function() {
+    return ui.confirm('Would you like to test these credentials?', true);
+  })
+  .then(function(test) {
+    if (!test)
+      return true;
+
+    return Promise.resolve()
+    .then(function() {
+      return asp(request)(registry, {
+        strictSSL: false,
+        auth: {
+          user: auth.username,
+          pass: auth.password
+        }
+      });
+    })
+    .then(function(res) {
+      if (res.statusCode == 401)
+        ui.log('warn', 'Provided npm credentials are not authorized, try re-entering your login details.');
+
+      else if (res.statusCode != 200)
+        ui.log('warn', 'Invalid response code, %' + res.statusCode + '%');
+
+      else {
+        ui.log('ok', 'npm authentication is working successfully.');
+        return true;
+      }
+    }, function(err) {
+      ui.log('err', err.stack || err);
+    });
+  })
+  .then(function(authorized) {
+    if (!authorized)
+      return ui.confirm('Would you like to try new credentials?', true)
+      .then(function(redo) {
+        if (redo)
+          return configureCredentials(registry, null, ui);
+      });
+    else
+      return encodeCredentials(auth);
+  })
+}
+
 NPMLocation.configure = function(config, ui) {
   config.remote = config.remote || 'https://npm.jspm.io';
-  return ui.input('npm registry to use', config.registry || 'https://registry.npmjs.org')
+
+  var rcauth, rcregistry;
+
+  // check if there are settings in npmrc
+  return asp(fs.readFile)(path.resolve(process.env.HOME || process.env.USERPROFILE || process.env.HOMEPATH, '.npmrc'))
+  .catch(function(e) {
+    if (e.code == 'ENOENT')
+      return;
+    throw e;
+  })
+  .then(function(npmrc) {
+    if (npmrc)
+      return ui.confirm('npmrc found, would you like to use these settings?', true)
+      .then(function(confirm) {
+        if (confirm) {
+          npmrc = npmrc.toString();
+          var regMatch = npmrc.match(/registry ?= ?(.+)/);
+          if (regMatch)
+            rcregistry = regMatch[1];
+
+          var authMatch = npmrc.toString().match(/_auth ?= ?(.+)/);
+          if (authMatch)
+            rcauth = decodeCredentials(authMatch[1]);
+        }
+      });
+  })
+  .then(function() {
+    return ui.input('npm registry', rcregistry || config.registry || defaultRegistry)
+  })
   .then(function(registry) {
     config.registry = registry;
 
+    if (rcauth)
+      return true;
     return ui.confirm('Would you like to configure authentication?', false);
   })
   .then(function(auth) {
     if (!auth)
       return;
 
-    return Promise.resolve()
-    .then(function() {
-      return ui.input('Enter your npm username');
-    })
-    .then(function(username) {
-      config.username = username;
-      return ui.input('Enter your npm password', null, true);
-    })
-    .then(function(password) {
-      config.password = password;
+    return configureCredentials(config.registry, rcauth, ui)
+    .then(function(auth) {
+      config.auth = auth;
     });
   })
   .then(function() {
@@ -113,10 +217,9 @@ NPMLocation.prototype = {
 
   lookup: function(repo) {
     var self = this;
-
-    return asp(request)(registryURL + '/' + encodeURIComponent(repo), {
+    return asp(request)(this.registryURL + '/' + encodeURIComponent(repo), {
       strictSSL: false,
-      auth: auth,
+      auth: this.auth,
       headers: lookupCache[repo] ? {
         'if-none-match': lookupCache[repo].eTag
       } : {}
@@ -449,7 +552,7 @@ NPMLocation.prototype = {
   dispose: function() {
     // save the lookup cache
     // NB we should really save separate files, and update it as we go instead of through dispose
-    fs.writeFileSync(path.resolve(tmpDir, 'registry-cache.json'), JSON.stringify(lookupCache));
+    fs.writeFileSync(path.resolve(this.tmpDir, 'registry-cache.json'), JSON.stringify(lookupCache));
   }
 };
 
