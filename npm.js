@@ -3,7 +3,7 @@ var asp = require('rsvp').denodeify;
 var request = require('request');
 var zlib = require('zlib');
 var tar = require('tar');
-var fs = require('fs');
+var fs = require('graceful-fs');
 var path = require('path');
 var glob = require('glob');
 var nodeSemver = require('semver');
@@ -16,7 +16,7 @@ var nodeBuiltins = ['assert', 'buffer', 'console', 'constants', 'crypto', 'domai
 // server-only builtins
 nodeBuiltins = nodeBuiltins.concat(['child_process', 'cluster', 'dgram', 'dns', 'net', 'readline', 'repl', 'tls']);
 
-var nodelibs = 'github:jspm/nodelibs@0.0.7';
+var nodelibs = 'github:jspm/nodelibs@0.0.8';
 
 var defaultRegistry = 'https://registry.npmjs.org';
 
@@ -363,7 +363,6 @@ NPMLocation.prototype = {
   },
 
   build: function(pjson, dir) {
-
     var packageName = pjson.name;
     var main = pjson.main || 'index';
     if (main.substr(main.length - 3, 3) == '.js')
@@ -406,7 +405,8 @@ NPMLocation.prototype = {
       return Promise.all(files.map(function(file) {
         var filename = path.relative(dir, file);
         filename = filename.substr(0, filename.length - 3);
-        var curSource;
+        var source;
+        var changed = false;
 
         return Promise.resolve()
 
@@ -422,10 +422,8 @@ NPMLocation.prototype = {
           return asp(fs.readFile)(file);
         })
 
-        .then(function(source) {
-          curSource = source;
-          var changed = false;
-          source = source.toString();
+        .then(function(_source) {
+          source = _source.toString();
 
           // if this file is an alias, intercept the source with an alias
           if (aliases[filename]) {
@@ -493,55 +491,56 @@ NPMLocation.prototype = {
           // require('file.js') -> require('file')
           // require('thisPackageName') -> require('../../index.js');
           // finally we map builtins to the adjusted module
-          return Promise.resolve()
-          .then(function() {
-            return cjsCompiler.remap(source, function(dep) {
-              if (dep == '.' || dep == '..')
-                dep += '/';
-              if (dep.substr(dep.length - 5, 5) == '.json') {
-                pjson.dependencies['json'] = '*';
+        })
+        .then(function() {
+          return cjsCompiler.remap(source, function(dep) {
+            if (dep == '.' || dep == '..')
+              dep += '/';
+            if (dep.substr(dep.length - 5, 5) == '.json') {
+              changed = true;
+              return dep + '!' + nodelibs + '/json';
+            }
+            if (dep.substr(dep.length - 1, 1) == '/') {
+              // if the folder is the package itself, make it a require to this name
+              if (path.resolve(path.dirname(file), dep) == dir) {
                 changed = true;
-                return dep + '!';
-              }
-              if (dep.substr(dep.length - 1, 1) == '/') {
-                // if the folder is the package itself, make it a require to this name
-                if (path.resolve(path.dirname(file), dep) == dir) {
-                  changed = true;
-                  return path.relative(path.dirname(filename), main);
-                }
-                else {
-                  changed = true;
-                  return dep + 'index';
-                }
-              }
-              if (dep.substr(dep.length - 3, 3) == '.js' && dep.indexOf('/') != -1) {
-                changed = true;
-                return dep.substr(0, dep.length - 3);
-              }
-
-              var firstPart = dep.substr(0, dep.indexOf('/')) || dep;
-
-              // if a package requires its own name, give it itself
-              if (firstPart == packageName)
                 return path.relative(path.dirname(filename), main);
-
-              var builtinIndex = nodeBuiltins.indexOf(firstPart);
-              if (builtinIndex != -1) {
-                changed = true;
-                var name = nodeBuiltins[builtinIndex];
-                return nodelibs + '/' + name + dep.substr(firstPart.length);
               }
-              return dep;
-            }, file);
-          })
+              else {
+                changed = true;
+                return dep + 'index';
+              }
+            }
+            if (dep.substr(dep.length - 3, 3) == '.js' && dep.indexOf('/') != -1) {
+              changed = true;
+              return dep.substr(0, dep.length - 3);
+            }
+
+            var firstPart = dep.substr(0, dep.indexOf('/')) || dep;
+
+            // if a package requires its own name, give it itself
+            if (firstPart == packageName)
+              return path.relative(path.dirname(filename), main);
+
+            var builtinIndex = nodeBuiltins.indexOf(firstPart);
+            if (builtinIndex != -1) {
+              changed = true;
+              var name = nodeBuiltins[builtinIndex];
+              return nodelibs + '/' + name + dep.substr(firstPart.length);
+            }
+            return dep;
+          }, file)
           .then(function(output) {
-            if (!changed)
-              return;
-            return asp(fs.writeFile)(file, output && output.source || source);
-          }, function(err) {
-            buildErrors.push(err);
+            source = output.source;
           });
         })
+        .then(function(output) {
+          if (!changed)
+            return;
+          return asp(fs.writeFile)(file, source);
+        }, function(err) {
+          buildErrors.push(err);
+        });
       }));
     })
     .then(function() {
