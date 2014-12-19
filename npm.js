@@ -271,8 +271,10 @@ NPMLocation.prototype = {
     if (hash && pjson.dist.shasum != hash)
       throw 'Package.json lookup hash mismatch';
 
-    pjson = clone(pjson);
+    return clone(pjson);
+  },
 
+  processPackageConfig: function(pjson) {
     // peer dependencies are just dependencies in jspm
     pjson.dependencies = pjson.dependencies || {};
     if (pjson.peerDependencies) {
@@ -364,6 +366,7 @@ NPMLocation.prototype = {
 
   build: function(pjson, dir) {
     var packageName = pjson.name;
+
     var main = pjson.main || 'index';
     if (main.substr(main.length - 3, 3) == '.js')
       main = main.substr(0, main.length - 3);
