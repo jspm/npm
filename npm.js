@@ -570,7 +570,7 @@ function parseDependencies(dependencies) {
 
     var match, name, version = '';
 
-    // 1. git://github.com/name/repo.git#version -> git:name/repo@version
+    // 1. git://github.com/name/repo.git#version -> github:name/repo@version
     if (match = dep.match(githubRegEx)) {
       dep = match[2];
       name = 'github:' + dep.split('#')[0];
@@ -598,17 +598,15 @@ function parseDependencies(dependencies) {
     // otherwise, we convert an npm range into something jspm-compatible
     // if it is an exact semver, or a tag, just use it directly
     if (!nodeSemver.valid(version)) {
-      if (version == '' || version == '*')
+      if (version == '')
         version = '';
+
+      else if (version == 'latest' || version == '*')
+        version = '*';
 
       // if we have a semver or fuzzy range, just keep as-is
       else if (version.indexOf(/[ <>=]/) != -1 || !version.substr(1).match(semverRegEx) || !version.substr(0, 1).match(/[\^\~]/))
         var range = nodeSemver.validRange(version);
-
-      if (range == '*') {
-        outDependencies[d] = '*';
-        return;
-      }
 
       if (range) {
         // if it has OR semantics, we only support the last range
@@ -689,14 +687,9 @@ function parseDependencies(dependencies) {
           version = '';
         }
 
-        // if no upperBound, then this is just compatible with the lower bound
+        // if not upperBound, then just treat as a wildcard
         else if (!upperBound) {
-          if (lowerSemver[1] == 0 && lowerSemver[2] == 0)
-            version = '0.0';
-          else if (lowerSemver[1] == 0)
-            version = '0';
-          else
-            version = '^' + getVersion(lowerSemver);
+          version = '*';
         }
 
         // if no lowerBound, use the upperBound directly, with sensible decrementing if necessary
@@ -764,9 +757,6 @@ function parseDependencies(dependencies) {
         }
       }
     }
-
-    if (version == 'latest')
-      version = '*';
 
     outDependencies[d] = name + (version ? '@' + version : '');
   })(d);
