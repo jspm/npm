@@ -57,21 +57,6 @@ var NPMLocation = function(options) {
     delete options.password;
   }
 
-  // load the local registry cache
-  try {
-    lookupCache = JSON.parse(fs.readFileSync(path.resolve(this.tmpDir, 'registry-cache.json')));
-  }
-  catch(e) {
-    if (!(e.code == 'ENOENT' || e instanceof SyntaxError))
-      throw e;
-    lookupCache = {};
-  }
-
-  if (lookupCache['__@versionString'] != options.versionString)
-    lookupCache = {};
-
-  lookupCache['__@versionString'] = options.versionString;
-
   if (options.auth) {
     var auth = decodeCredentials(options.auth);
     this.auth = {
@@ -88,8 +73,6 @@ var metaRegEx = /^(\s*\/\*.*\*\/|\s*\/\/[^\n]*|\s*"[^"]+"\s*;?|\s*'[^']+'\s*;?)+
 var metaPartRegEx = /\/\*.*\*\/|\/\/[^\n]*|"[^"]+"\s*;?|'[^']+'\s*;?/g;
 
 var cmdCommentRegEx = /^\s*#/;
-
-var lookupCache;
 
 function configureCredentials(registry, _auth, ui) {
   var auth = _auth || {};
@@ -217,51 +200,77 @@ NPMLocation.prototype = {
 
   lookup: function(repo) {
     var self = this;
-    return asp(request)(this.registryURL + '/' + encodeURIComponent(repo), {
-      strictSSL: false,
-      auth: this.auth,
-      headers: lookupCache[repo] ? {
-        'if-none-match': lookupCache[repo].eTag
-      } : {}
-    }).then(function(res) {
-      if (res.statusCode == 304)
-        return { versions: lookupCache[repo].versions };
 
-      if (res.statusCode == 404)
-        return { notfound: true };
+    var newLookup = false;
+    var lookupCache;
 
-      if (res.statusCode == 401)
-        throw 'Invalid authentication details. Run %jspm endpoint config ' + self.name + '% to reconfigure.';
+    return asp(fs.readFile)(path.resolve(self.tmpDir, repo + '.json'))
+    .then(function(lookupJSON) {
+      lookupCache = JSON.parse(lookupJSON.toString());
+    }, function(e) {
+      if (e.code == 'ENOENT')
+        return;
+      throw e;
+    })
+    .then(function() {
+      return asp(request)(self.registryURL + '/' + encodeURIComponent(repo), {
+        strictSSL: false,
+        auth: self.auth,
+        headers: lookupCache ? {
+          'if-none-match': lookupCache.eTag
+        } : {}
+      }).then(function(res) {
+        if (res.statusCode == 304)
+          return { versions: lookupCache.versions };
 
-      if (res.statusCode != 200)
-        throw 'Invalid status code ' + res.statusCode;
+        if (res.statusCode == 404)
+          return { notfound: true };
 
-      var versions = {};
-      var packageData;
+        if (res.statusCode == 401)
+          throw 'Invalid authentication details. Run %jspm endpoint config ' + self.name + '% to reconfigure.';
 
-      try {
-        packageData = JSON.parse(res.body).versions;
-      }
-      catch(e) {
-        throw 'Unable to parse package.json';
-      }
+        if (res.statusCode != 200)
+          throw 'Invalid status code ' + res.statusCode;
 
-      for (var v in packageData) {
-        if (packageData[v].dist && packageData[v].dist.shasum)
-          versions[v] = {
-            hash: packageData[v].dist.shasum,
-            meta: packageData[v]
+        var versions = {};
+        var packageData;
+
+        try {
+          packageData = JSON.parse(res.body).versions;
+        }
+        catch(e) {
+          throw 'Unable to parse package.json';
+        }
+
+        for (var v in packageData) {
+          if (packageData[v].dist && packageData[v].dist.shasum)
+            versions[v] = {
+              hash: packageData[v].dist.shasum,
+              meta: packageData[v]
+            };
+        }
+
+        if (res.headers.etag) {
+          newLookup = true;
+          lookupCache = {
+            eTag: res.headers.etag,
+            versions: versions
           };
-      }
+        }
 
-      if (res.headers.etag)
-        lookupCache[repo] = {
-          eTag: res.headers.etag,
-          versions: versions
-        };
+        return { versions: versions };
+      });
+    })
+    .then(function(response) {
+      // save lookupCache
+      if (newLookup)
+        return asp(fs.writeFile)(path.resolve(self.tmpDir, repo + '.json'), JSON.stringify(lookupCache))
+        .then(function() {
+          return response;
+        });
 
-      return { versions: versions };
-    });
+      return response;
+    })
   },
 
   getPackageConfig: function(repo, version, hash, pjson) {
@@ -289,10 +298,6 @@ NPMLocation.prototype = {
     pjson.dependencies['nodelibs'] = nodelibs;
 
     pjson.format = pjson.format || 'cjs';
-
-    pjson.buildConfig = pjson.buildConfig || {};
-    if (!('minify' in pjson.buildConfig))
-      pjson.buildConfig.minify = true;
 
     // ignore directory handling for NodeJS, as npm doesn't do it
     delete pjson.directories;
@@ -417,7 +422,13 @@ NPMLocation.prototype = {
         .then(function() {
           if (path.basename(file) == 'index.js' && path.dirname(file) != dir) {
             var dirname = path.dirname(file);
-            return asp(fs.writeFile)(dirname + '.js', 'module.exports = require("./' + path.basename(dirname) + '/index");\n');
+            return new Promise(function(resolve, reject) {
+              return fs.exists(dirname + '.js', resolve);
+            })
+            .then(function(exists) {
+              if (!exists)
+                return asp(fs.writeFile)(dirname + '.js', 'module.exports = require("./' + path.basename(dirname) + '/index");\n');
+            });
           }
         })
 
@@ -549,12 +560,6 @@ NPMLocation.prototype = {
     .then(function() {
       return buildErrors;
     });
-  },
-
-  dispose: function() {
-    // save the lookup cache
-    // NB we should really save separate files, and update it as we go instead of through dispose
-    fs.writeFileSync(path.resolve(this.tmpDir, 'registry-cache.json'), JSON.stringify(lookupCache));
   }
 };
 
@@ -608,7 +613,10 @@ function parseDependencies(dependencies) {
       else if (version.indexOf(/[ <>=]/) != -1 || !version.substr(1).match(semverRegEx) || !version.substr(0, 1).match(/[\^\~]/))
         var range = nodeSemver.validRange(version);
 
-      if (range) {
+      if (range == '*')
+        version = '*';
+
+      else if (range) {
         // if it has OR semantics, we only support the last range
         if (range.indexOf('||') != -1)
           range = range.split('||').pop();
