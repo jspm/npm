@@ -517,13 +517,8 @@ NPMLocation.prototype = {
               // now we check for internal resolution
               // run the NodeJS resolver, to know which file we should get
               try {
-                console.log(dep);
-                console.log(file);
                 var resolved = npmResolve.sync(dep, { basedir: path.dirname(file) });
-                console.log(resolved);
-                console.log('-> ' + resolved);
                 dep = path.relative(path.dirname(file), resolved);
-                console.log('== ' + dep);
                 if (dep.substr(0, 1) != '.')
                   dep = './' + dep;
               }
