@@ -43,7 +43,8 @@ function decodeCredentials(str) {
   };
 }
 
-var NPMLocation = function(options) {
+var NPMLocation = function(options, ui) {
+  this.ui = ui;
   this.name = options.name;
   // default needed during upgrade time period
   this.registryURL = options.registry || defaultRegistry;
@@ -191,10 +192,11 @@ NPMLocation.prototype = {
   nodelibs: nodelibs,
 
   parse: function(name) {
+    var pLen = name.substr(0, 1) == '@' ? 2 : 1;
     var parts = name.split('/');
     return {
-      package: parts[0],
-      path: parts.splice(1).join('/')
+      package: parts.splice(0, pLen).join('/'),
+      path: parts.join('/')
     };
   },
 
@@ -291,7 +293,7 @@ NPMLocation.prototype = {
         pjson.dependencies[d] = pjson.peerDependencies[d];
     }
 
-    pjson.dependencies = parseDependencies(pjson.dependencies);
+    pjson.dependencies = parseDependencies(pjson.dependencies, this.ui);
 
     pjson.registry = pjson.registry || this.name;
 
@@ -306,6 +308,7 @@ NPMLocation.prototype = {
     delete pjson.ignore;
 
     // if there is a "browser" object, convert it into map config for browserify support
+
     if (typeof pjson.browser == 'string')
       pjson.main = pjson.browser;
 
@@ -567,7 +570,7 @@ NPMLocation.prototype = {
 var githubRegEx = /^git(\+[^:]+)?:\/\/github.com\/(.+)/;
 var protocolRegEx = /^[^\:\/]+:\/\//;
 var semverRegEx = /^(\d+)(?:\.(\d+)(?:\.(\d+)(?:-([\da-z-]+(?:\.[\da-z-]+)*)(?:\+([\da-z-]+(?:\.[\da-z-]+)*))?)?)?)?$/i;
-function parseDependencies(dependencies) {
+function parseDependencies(dependencies, ui) {
   // do dependency parsing
   var outDependencies = {};
   for (var d in dependencies) (function(d) {
@@ -579,14 +582,15 @@ function parseDependencies(dependencies) {
     if (match = dep.match(githubRegEx)) {
       dep = match[2];
       name = 'github:' + dep.split('#')[0];
-      version = dep.split('#')[1];
+      version = dep.split('#')[1] || '*';
       if (name.substr(name.length - 4, 4) == '.git')
         name = name.substr(0, name.length - 4);
+      ui.log('warn', 'npm dependency `' + name + '` will likely only work if its GitHub repo has %registry: npm% in its package.json');
     }
 
     // 2. url:// -> not supported
     else if (dep.match(protocolRegEx))
-      throw 'Dependency ' + dep + ' not supported by jspm';
+      throw 'npm dependency format ' + dep + ' not currently supported by jspm. Post an issue if required.';
 
     // 3. name/repo#version -> github:name/repo@version
     else if (dep.split('/').length == 2) {
