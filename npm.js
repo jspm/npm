@@ -7,6 +7,7 @@ var fs = require('graceful-fs');
 var path = require('path');
 var glob = require('glob');
 var nodeSemver = require('semver');
+var npmResolve = require('resolve');
 
 var cjsCompiler = require('systemjs-builder/compilers/cjs');
 
@@ -16,7 +17,7 @@ var nodeBuiltins = ['assert', 'buffer', 'console', 'constants', 'crypto', 'domai
 // server-only builtins
 nodeBuiltins = nodeBuiltins.concat(['child_process', 'cluster', 'dgram', 'dns', 'net', 'readline', 'repl', 'tls']);
 
-var nodelibs = 'github:jspm/nodelibs@0.0.8';
+var nodelibs = 'github:jspm/nodelibs@0.0.9';
 
 var defaultRegistry = 'https://registry.npmjs.org';
 
@@ -410,7 +411,7 @@ NPMLocation.prototype = {
     }
 
     var buildErrors = [];
-
+  
     return asp(glob)(dir + path.sep + '**' + path.sep + '*.js')
     .then(function(files) {
       return Promise.all(files.map(function(file) {
@@ -421,34 +422,12 @@ NPMLocation.prototype = {
 
         return Promise.resolve()
 
-        // create an index.js forwarding module if necessary for directory requires
-        .then(function() {
-          if (path.basename(file) == 'index.js' && path.dirname(file) != dir) {
-            var dirname = path.dirname(file);
-            return new Promise(function(resolve, reject) {
-              return fs.exists(dirname + '.js', resolve);
-            })
-            .then(function(exists) {
-              if (!exists)
-                return asp(fs.writeFile)(dirname + '.js', 'module.exports = require("./' + path.basename(dirname) + '/index");\n');
-            });
-          }
-        })
-
         .then(function() {
           return asp(fs.readFile)(file);
         })
 
         .then(function(_source) {
           source = _source.toString();
-
-          // if this file is an alias, intercept the source with an alias
-          if (aliases[filename]) {
-            var alias = aliases[filename];
-            var relAliasModule = alias.substr(0, 2) == './' ? path.relative(path.dirname(filename), alias.substr(2)) : alias;
-            source = 'module.exports = require("' + relAliasModule + '");\n';
-            changed = true;
-          }
 
           // at this point, only alter the source file if we're certain it is CommonJS in Node-style
 
@@ -504,51 +483,71 @@ NPMLocation.prototype = {
 
           // remap require statements, with mappings:
           // require('file.json') -> require('file.json!')
-          // require('dir/') -> require('dir/index')
-          // require('file.js') -> require('file')
-          // require('thisPackageName') -> require('../../index.js');
           // finally we map builtins to the adjusted module
         })
         .then(function() {
           return cjsCompiler.remap(source, function(dep) {
-            if (dep == '.' || dep == '..')
-              dep += '/';
+            var relPath = path.join(path.dirname(filename), dep);
+            var firstPart = dep.split('/').splice(0, dep.substr(0, 1) == '@' ? 1 : 2).join('/');
+            var builtinIndex = nodeBuiltins.indexOf(firstPart);
+
+            // first check if this is an alias
+            if (aliases[relPath]) {
+              dep = path.relative(path.dirname(filename), aliases[relPath]);
+              if (dep.substr(0, 1) != '.')
+                dep = './' + dep;
+              relPath = aliases[relPath];
+            }
+
+            // if a package requires its own name, give it itself
+            if (firstPart == packageName) {
+              dep = path.relative(path.dirname(filename), main);
+            }
+
+            // check if it is a Node builtin
+            else if (builtinIndex != -1) {
+              changed = true;
+              var name = nodeBuiltins[builtinIndex];
+              return nodelibs + '/' + name + dep.substr(firstPart.length);
+            }
+
+            // if its a dependency, we're done
+            else if (!pjson.dependencies[firstPart]) {
+
+              // now we check for internal resolution
+              // run the NodeJS resolver, to know which file we should get
+              try {
+                console.log(dep);
+                console.log(file);
+                var resolved = npmResolve.sync(dep, { basedir: path.dirname(file) });
+                console.log(resolved);
+                console.log('-> ' + resolved);
+                dep = path.relative(path.dirname(file), resolved);
+                console.log('== ' + dep);
+                if (dep.substr(0, 1) != '.')
+                  dep = './' + dep;
+              }
+              catch(e) {}
+            }
+
+            // now that we have resolved the dependency, do extension alterations
             if (dep.substr(dep.length - 5, 5) == '.json') {
               changed = true;
               return dep + '!' + nodelibs + '/json';
             }
+
             if (dep.substr(dep.length - 1, 1) == '/') {
-              // if the folder is the package itself, make it a require to this name
-              if (path.resolve(path.dirname(file), dep) == dir) {
-                changed = true;
-                var relPath = path.relative(path.dirname(filename), main);
-                if (relPath.substr(0, 1) != '.')
-                  relPath = '.' + path.sep + relPath;
-                return relPath;
-              }
-              else {
-                changed = true;
-                return dep + 'index';
-              }
+              throw 'File ' + filename + ' has a directory require to another package, which is not currently supported in jspm.';
             }
+
+            // remove js extensions
             if (dep.substr(dep.length - 3, 3) == '.js' && dep.indexOf('/') != -1) {
               changed = true;
               return dep.substr(0, dep.length - 3);
             }
 
-            var firstPart = dep.substr(0, dep.indexOf('/')) || dep;
-
-            // if a package requires its own name, give it itself
-            if (firstPart == packageName)
-              return path.relative(path.dirname(filename), main);
-
-            var builtinIndex = nodeBuiltins.indexOf(firstPart);
-            if (builtinIndex != -1) {
-              changed = true;
-              var name = nodeBuiltins[builtinIndex];
-              return nodelibs + '/' + name + dep.substr(firstPart.length);
-            }
             return dep;
+            
           }, file)
           .then(function(output) {
             source = output.source;

@@ -1,6 +1,6 @@
 {
   "name": "jspm-npm",
-  "version": "0.13.1",
+  "version": "0.14.0",
   "description": "jspm npm endpoint",
   "main": "npm.js",
   "scripts": {
@@ -19,6 +19,7 @@
     "glob": "~3.2.6",
     "graceful-fs": "^3.0.5",
     "request": "~2.45.0",
+    "resolve": "^1.0.0",
     "rmdir": "~1.0.0",
     "rsvp": "^3.0.12",
     "semver": "^4.0.3",
