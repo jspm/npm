@@ -521,7 +521,10 @@ NPMLocation.prototype = {
               // if the folder is the package itself, make it a require to this name
               if (path.resolve(path.dirname(file), dep) == dir) {
                 changed = true;
-                return path.relative(path.dirname(filename), main);
+                var relPath = path.relative(path.dirname(filename), main);
+                if (relPath.substr(0, 1) != '.')
+                  relPath = '.' + path.sep + relPath;
+                return relPath;
               }
               else {
                 changed = true;
