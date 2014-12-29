@@ -102,7 +102,6 @@ function configureCredentials(registry, _auth, ui) {
     return Promise.resolve()
     .then(function() {
       return asp(request)(registry, {
-        strictSSL: false,
         auth: {
           user: auth.username,
           pass: auth.password
@@ -217,7 +216,6 @@ NPMLocation.prototype = {
     })
     .then(function() {
       return asp(request)(self.registryURL + '/' + encodeURIComponent(repo), {
-        strictSSL: false,
         auth: self.auth,
         headers: lookupCache ? {
           'if-none-match': lookupCache.eTag
@@ -346,8 +344,7 @@ NPMLocation.prototype = {
     return new Promise(function(resolve, reject) {
       request({
         uri: versionData.dist.tarball,
-        headers: { 'accept': 'application/octet-stream' },
-        strictSSL: false
+        headers: { 'accept': 'application/octet-stream' }
       })
       .on('response', function(npmRes) {
 
@@ -521,6 +518,7 @@ NPMLocation.prototype = {
                 dep = path.relative(path.dirname(file), resolved);
                 if (dep.substr(0, 1) != '.')
                   dep = './' + dep;
+                // ensure that we don't backtrack too deep?
               }
               catch(e) {}
             }
