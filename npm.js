@@ -210,7 +210,7 @@ NPMLocation.prototype = {
     .then(function(lookupJSON) {
       lookupCache = JSON.parse(lookupJSON.toString());
     }, function(e) {
-      if (e.code == 'ENOENT')
+      if (e.code == 'ENOENT' || e instanceof SyntaxError)
         return;
       throw e;
     })
