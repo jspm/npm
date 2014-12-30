@@ -51,11 +51,11 @@ var NPMLocation = function(options, ui) {
   this.tmpDir = options.tmpDir;
   this.remote = options.remote;
 
-  // NB deprecate
   if (options.username && !options.auth) {
     options.auth = encodeCredentials(options);
-    delete options.username;
-    delete options.password;
+    // NB eventual auth deprecation
+    // delete options.username;
+    // delete options.password;
   }
 
   if (options.auth) {
