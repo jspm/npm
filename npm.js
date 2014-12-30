@@ -209,7 +209,7 @@ NPMLocation.prototype = {
     return asp(fs.readFile)(path.resolve(self.tmpDir, repo + '.json'))
     .then(function(lookupJSON) {
       lookupCache = JSON.parse(lookupJSON.toString());
-    }, function(e) {
+    }).catch(function(e) {
       if (e.code == 'ENOENT' || e instanceof SyntaxError)
         return;
       throw e;
