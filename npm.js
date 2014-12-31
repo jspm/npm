@@ -308,6 +308,8 @@ NPMLocation.prototype = {
 
     // if there is a "browser" object, convert it into map config for browserify support
 
+    if (typeof pjson.browserify == 'string')
+      pjson.main = pjson.browserify;
     if (typeof pjson.browser == 'string')
       pjson.main = pjson.browser;
 
