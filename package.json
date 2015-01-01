@@ -4,7 +4,7 @@
   "description": "jspm npm endpoint",
   "main": "npm.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node test/unit.js && cd test && jspm run test-shared && jspm run test-node && open test.html && cd .."
   },
   "repository": {
     "type": "git",

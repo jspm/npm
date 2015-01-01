@@ -24,7 +24,7 @@ var nodeBuiltins = {
   'domain': 'github:jspm/nodelibs-domain@^0.1.0',
   'events': 'github:jspm/nodelibs-events@^0.1.0',
   'fs': 'github:jspm/nodelibs-fs@^0.1.0',
-  'http': 'github:jspm/nodelibs-http@1.7.0-jspm',
+  'http': 'github:jspm/nodelibs-http@^1.7.0',
   'https': 'github:jspm/nodelibs-https@^0.1.0',
   'net': 'github:jspm/nodelibs-net@^0.1.0',
   'os': 'github:jspm/nodelibs-os@^0.1.0',
@@ -52,7 +52,9 @@ var defaultRegistry = 'https://registry.npmjs.org';
 function clone(a) {
   var b = {};
   for (var p in a) {
-    if (typeof a[p] == 'object')
+    if (a[p] instanceof Array)
+      b[p] = [].concat(a[p]);
+    else if (typeof a[p] == 'object')
       b[p] = clone(a[p]);
     else
       b[p] = a[p];
@@ -324,11 +326,14 @@ NPMLocation.prototype = {
 
     pjson.format = pjson.format || 'cjs';
 
-    // ignore directory handling for NodeJS, as npm doesn't do it
+    // json mains become plugins
+    if (pjson.main && typeof pjson.main == 'string' && pjson.main.substr(pjson.main.length - 5, 5) == '.json') {
+      pjson.main += '!systemjs-json';
+      pjson.dependencies['systemjs-json'] = jsonPlugin;
+    }
+
+    // ignore directory flattening for NodeJS, as npm doesn't do it
     delete pjson.directories;
-    // ignore files and ignore as npm already does this for us
-    delete pjson.files;
-    delete pjson.ignore;
 
     // if there is a "browser" object, convert it into map config for browserify support
 
@@ -434,11 +439,21 @@ NPMLocation.prototype = {
     }
 
     var buildErrors = [];
+    var newDeps = {};
   
     return asp(glob)(dir + path.sep + '**' + path.sep + '*.js')
     .then(function(files) {
       return Promise.all(files.map(function(file) {
-        var filename = path.relative(dir, file);
+        var filename = path.relative(dir, file).replace(/\\/g, '/');
+        
+        // skip files in the ignore paths
+        // NB this can be removed with https://github.com/jspm/jspm-cli/issues/345
+        if (pjson.ignore) {
+          if (pjson.ignore.some(function(path) {
+            return filename.substr(0, path.length) == path && (filename.substr(path.length, 1) == '/' || filename.substr(path.length, 1) == '');
+          }))
+            return;
+        }
         filename = filename.substr(0, filename.length - 3);
         var source;
         var changed = false;
@@ -497,6 +512,12 @@ NPMLocation.prototype = {
 
           // Note an alternative here would be to use https://github.com/substack/insert-module-globals
           var usesBuffer = source.match(bufferRegEx), usesProcess = source.match(processRegEx);
+          
+          // the buffer and process nodelibs modules themselves don't wrap themselves
+          if (pjson.name == 'buffer')
+            usesBuffer = false;
+          if (pjson.name == 'process')
+            usesProcess = false;
 
           if (usesBuffer || usesProcess) {
             changed = true;
@@ -511,7 +532,7 @@ NPMLocation.prototype = {
         .then(function() {
           return cjsCompiler.remap(source, function(dep) {
             var relPath = path.join(path.dirname(filename), dep);
-            var firstPart = dep.split('/').splice(0, dep.substr(0, 1) == '@' ? 1 : 2).join('/');
+            var firstPart = dep.split('/').splice(0, dep.substr(0, 1) == '@' ? 2 : 1).join('/');
 
             // first check if this is an alias
             if (aliases[relPath]) {
@@ -521,43 +542,40 @@ NPMLocation.prototype = {
               relPath = aliases[relPath];
             }
 
-            // if a package requires its own name, give it itself
-            if (firstPart == packageName) {
-              dep = path.relative(path.dirname(filename), main);
+            // check if it is a Node builtin
+            else if (!pjson.dependencies[firstPart] && nodeBuiltins[firstPart]) {
+              changed = true;
+              // only add explicit builtin dependency for production code
+              if (!filename.match(/^(test|tests|support|example)\//))
+                newDeps[firstPart] = nodeBuiltins[firstPart];
+              return firstPart;
             }
 
-            // if its a dependency, we're done
+            // if not a package, check for internal resolution
+            // run the NodeJS resolver, to know which file we should get
             else if (!pjson.dependencies[firstPart]) {
-
-              // now we check for internal resolution
-              // run the NodeJS resolver, to know which file we should get
               try {
                 var resolved = npmResolve.sync(dep, { basedir: path.dirname(file) });
                 dep = path.relative(path.dirname(file), resolved);
                 if (dep.substr(0, 1) != '.')
                   dep = './' + dep;
                 // ensure that we don't backtrack too deep?
+                // not an issue since installing into ~/.jspm/packages
               }
               catch(e) {}
-            }
-
-            // check if it is a Node builtin
-            else if (nodeBuiltins[dep]) {
-              changed = true;
-              dep = 'jspm-nodelibs-' + dep;
-              pjson.dependencies[dep] = nodeBuiltins[dep];
-              return nodeBuiltins[dep];
             }
 
             // now that we have resolved the dependency, do extension alterations
             if (dep.substr(dep.length - 5, 5) == '.json') {
               changed = true;
-              pjson.dependencies['systemjs-json'] = jsonPlugin;
+              newDeps['systemjs-json'] = jsonPlugin;
               return dep + '!systemjs-json';
             }
 
+            // disable directory requires
             if (dep.substr(dep.length - 1, 1) == '/') {
-              throw 'File ' + filename + ' has a directory require to another package, which is not currently supported in jspm.';
+              changed = true;
+              dep = dep.substr(0, dep.length - 1);
             }
 
             // remove js extensions
@@ -576,6 +594,9 @@ NPMLocation.prototype = {
         .then(function(output) {
           if (!changed)
             return;
+          Object.keys(newDeps).forEach(function(dep) {
+            pjson.dependencies[dep] = newDeps[dep];
+          });
           return asp(fs.writeFile)(file, source);
         }, function(err) {
           buildErrors.push(err);
