@@ -11,13 +11,41 @@ var npmResolve = require('resolve');
 
 var cjsCompiler = require('systemjs-builder/compilers/cjs');
 
-var nodeBuiltins = ['assert', 'buffer', 'console', 'constants', 'crypto', 'domain', 'events', 'fs', 'http', 'https', 'os', 'path', 'process', 'punycode', 'querystring',
-  'string_decoder', 'stream', 'timers', 'tls', 'tty', 'url', 'util', 'vm', 'zlib'];
+var nodeBuiltins = {
+  'assert': 'github:jspm/nodelibs-assert@^0.1.0',
+  'buffer': 'github:jspm/nodelibs-buffer@^0.1.0',
+  'child_process': 'github:jspm/nodelibs-child_process@^0.1.0',
+  'cluster': 'github:jspm/nodelibs-cluster@^0.1.0',
+  'console': 'github:jspm/nodelibs-console@^0.1.0',
+  'constants': 'github:jspm/nodelibs-constants@^0.1.0',
+  'crypto': 'github:jspm/nodelibs-crypto@^0.1.0',
+  'dgram': 'github:jspm/nodelibs-dgram@^0.1.0',
+  'dns': 'github:jspm/nodelibs-dns@^0.1.0',
+  'domain': 'github:jspm/nodelibs-domain@^0.1.0',
+  'events': 'github:jspm/nodelibs-events@^0.1.0',
+  'fs': 'github:jspm/nodelibs-fs@^0.1.0',
+  'http': 'github:jspm/nodelibs-http@1.7.0-jspm',
+  'https': 'github:jspm/nodelibs-https@^0.1.0',
+  'net': 'github:jspm/nodelibs-net@^0.1.0',
+  'os': 'github:jspm/nodelibs-os@^0.1.0',
+  'path': 'github:jspm/nodelibs-path@^0.1.0',
+  'process': 'github:jspm/nodelibs-process@^0.1.0',
+  'punycode': 'github:jspm/nodelibs-punycode@^0.1.0',
+  'querystring': 'github:jspm/nodelibs-querystring@^0.1.0',
+  'readline': 'github:jspm/nodelibs-readline@^0.1.0',
+  'repl': 'github:jspm/nodelibs-repl@^0.1.0',
+  'stream': 'github:jspm/nodelibs-stream@^0.1.0',
+  'string_decoder': 'github:jspm/nodelibs-string_decoder@^0.1.0',
+  'timers': 'github:jspm/nodelibs-timers@^0.1.0',
+  'tls': 'github:jspm/nodelibs-tls@^0.1.0',
+  'tty': 'github:jspm/nodelibs-tty@^0.1.0',
+  'url': 'github:jspm/nodelibs-url@^0.1.0',
+  'util': 'github:jspm/nodelibs-util@^0.1.0',
+  'vm': 'github:jspm/nodelibs-vm@^0.1.0',
+  'zlib': 'github:jspm/nodelibs-zlib@^0.1.0'
+};
 
-// server-only builtins
-nodeBuiltins = nodeBuiltins.concat(['child_process', 'cluster', 'dgram', 'dns', 'net', 'readline', 'repl', 'tls']);
-
-var nodelibs = 'github:jspm/nodelibs@0.0.9';
+var jsonPlugin = 'github:systemjs/plugin-json@^0.1.0';
 
 var defaultRegistry = 'https://registry.npmjs.org';
 
@@ -189,8 +217,6 @@ NPMLocation.configure = function(config, ui) {
 
 NPMLocation.prototype = {
 
-  nodelibs: nodelibs,
-
   parse: function(name) {
     var pLen = name.substr(0, 1) == '@' ? 2 : 1;
     var parts = name.split('/');
@@ -295,8 +321,6 @@ NPMLocation.prototype = {
     pjson.dependencies = parseDependencies(pjson.dependencies, this.ui);
 
     pjson.registry = pjson.registry || this.name;
-
-    pjson.dependencies['nodelibs'] = nodelibs;
 
     pjson.format = pjson.format || 'cjs';
 
@@ -488,7 +512,6 @@ NPMLocation.prototype = {
           return cjsCompiler.remap(source, function(dep) {
             var relPath = path.join(path.dirname(filename), dep);
             var firstPart = dep.split('/').splice(0, dep.substr(0, 1) == '@' ? 1 : 2).join('/');
-            var builtinIndex = nodeBuiltins.indexOf(firstPart);
 
             // first check if this is an alias
             if (aliases[relPath]) {
@@ -501,13 +524,6 @@ NPMLocation.prototype = {
             // if a package requires its own name, give it itself
             if (firstPart == packageName) {
               dep = path.relative(path.dirname(filename), main);
-            }
-
-            // check if it is a Node builtin
-            else if (builtinIndex != -1) {
-              changed = true;
-              var name = nodeBuiltins[builtinIndex];
-              return nodelibs + '/' + name + dep.substr(firstPart.length);
             }
 
             // if its a dependency, we're done
@@ -525,10 +541,19 @@ NPMLocation.prototype = {
               catch(e) {}
             }
 
+            // check if it is a Node builtin
+            else if (nodeBuiltins[dep]) {
+              changed = true;
+              dep = 'jspm-nodelibs-' + dep;
+              pjson.dependencies[dep] = nodeBuiltins[dep];
+              return nodeBuiltins[dep];
+            }
+
             // now that we have resolved the dependency, do extension alterations
             if (dep.substr(dep.length - 5, 5) == '.json') {
               changed = true;
-              return dep + '!' + nodelibs + '/json';
+              pjson.dependencies['systemjs-json'] = jsonPlugin;
+              return dep + '!systemjs-json';
             }
 
             if (dep.substr(dep.length - 1, 1) == '/') {
