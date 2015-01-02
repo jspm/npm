@@ -1,6 +1,6 @@
 {
   "name": "jspm-npm",
-  "version": "0.14.2",
+  "version": "0.14.0",
   "description": "jspm npm endpoint",
   "main": "npm.js",
   "scripts": {
@@ -16,7 +16,7 @@
     "url": "https://github.com/jspm/npm/issues"
   },
   "dependencies": {
-    "glob": "~3.2.6",
+    "glob": "~4.3.2",
     "graceful-fs": "^3.0.5",
     "request": "~2.45.0",
     "resolve": "^1.0.0",
