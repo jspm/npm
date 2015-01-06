@@ -642,7 +642,7 @@ function parseDependencies(dependencies, ui) {
     // 3. name/repo#version -> github:name/repo@version
     else if (dep.split('/').length == 2) {
       name = 'github:' + dep.split('#')[0];
-      version = dep.split('#')[1];
+      version = dep.split('#')[1] || '*';
     }
 
     // 4. version -> name@version
