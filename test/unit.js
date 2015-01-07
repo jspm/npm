@@ -31,4 +31,6 @@ testDependency('@scoped/react', '0.12.x', '@scoped/react', '@scoped/react@~0.12.
 testDependency('@scoped/react', '0.x', '@scoped/react', '@scoped/react@0');
 testDependency('@scoped/react', '>=0.12.0', '@scoped/react', '@scoped/react@*');
 
+testDependency('get-size', '>=1.1.4 <1.3', 'get-size', 'get-size@~1.2.0');
+
 console.log('Unit tests passed');

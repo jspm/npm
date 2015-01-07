@@ -804,11 +804,11 @@ function parseDependencies(dependencies, ui) {
           // if upper bound is exact minor
           else if (upperSemver[3] == 0 && !upperSemver[4]) {
             // if lower bound is minor below, we are fuzzy compatible
-            if (lowerSemver[2] = upperSemver[2] - 1)
+            if (lowerSemver[2] == upperSemver[2] - 1)
               version = '~' + getVersion(lowerSemver);
             // otherwise we are fuzzy compatible with previous
             else
-              version = '~' + upperSemver[1] + '.' + (upperSemver[2] - 1);
+              version = '~' + upperSemver[1] + '.' + (upperSemver[2] - 1) + '.0';
           }
           // if upper bound is exact version -> use exact
           else
