@@ -49,12 +49,10 @@ System.config({
       "console-browserify": "npm:console-browserify@1.1.0"
     },
     "github:jspm/nodelibs-constants@0.1.0": {
-      "constants-browserify": "npm:constants-browserify@0.0.1",
-      "systemjs-json": "github:systemjs/plugin-json@0.1.0"
+      "constants-browserify": "npm:constants-browserify@0.0.1"
     },
     "github:jspm/nodelibs-crypto@0.1.0": {
-      "crypto-browserify": "npm:crypto-browserify@3.7.2",
-      "systemjs-json": "github:systemjs/plugin-json@0.1.0"
+      "crypto-browserify": "npm:crypto-browserify@3.7.2"
     },
     "github:jspm/nodelibs-dgram@0.1.0": {
       "systemjs-json": "github:systemjs/plugin-json@0.1.0"
@@ -162,7 +160,7 @@ System.config({
       "crypto": "github:jspm/nodelibs-crypto@0.1.0"
     },
     "npm:browserify-sign@2.7.0": {
-      "bn.js": "npm:bn.js@0.16.0",
+      "bn.js": "npm:bn.js@0.15.2",
       "browserify-rsa": "npm:browserify-rsa@1.1.0",
       "buffer": "github:jspm/nodelibs-buffer@0.1.0",
       "crypto": "github:jspm/nodelibs-crypto@0.1.0",
@@ -196,7 +194,7 @@ System.config({
       "buffer": "github:jspm/nodelibs-buffer@0.1.0"
     },
     "npm:create-ecdh@1.0.0": {
-      "bn.js": "npm:bn.js@0.16.0",
+      "bn.js": "npm:bn.js@0.15.2",
       "buffer": "github:jspm/nodelibs-buffer@0.1.0",
       "crypto": "github:jspm/nodelibs-crypto@0.1.0",
       "elliptic": "npm:elliptic@0.15.17"
@@ -216,7 +214,7 @@ System.config({
       "util": "github:jspm/nodelibs-util@0.1.0"
     },
     "npm:diffie-hellman@2.2.0": {
-      "bn.js": "npm:bn.js@0.16.0",
+      "bn.js": "npm:bn.js@0.15.2",
       "buffer": "github:jspm/nodelibs-buffer@0.1.0",
       "crypto": "github:jspm/nodelibs-crypto@0.1.0",
       "miller-rabin": "npm:miller-rabin@1.1.2",
@@ -312,7 +310,7 @@ System.config({
       "buffer": "github:jspm/nodelibs-buffer@0.1.0"
     },
     "npm:timers-browserify@1.1.0": {
-      "process": "npm:process@0.10.0"
+      "process": "npm:process@0.5.2"
     },
     "npm:url@0.10.2": {
       "assert": "github:jspm/nodelibs-assert@0.1.0",
