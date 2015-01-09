@@ -318,14 +318,14 @@ NPMLocation.prototype = {
   processPackageConfig: function(pjson) {
 
     if (!pjson.registry || pjson.registry == 'npm') {
-      pjson.dependencies = parseDependencies(pjson.dependencies, this.ui);
-
       // peer dependencies are just dependencies in jspm
       pjson.dependencies = pjson.dependencies || {};
       if (pjson.peerDependencies) {
         for (var d in pjson.peerDependencies)
           pjson.dependencies[d] = pjson.peerDependencies[d];
       }
+
+      pjson.dependencies = parseDependencies(pjson.dependencies, this.ui);
     }
 
     pjson.registry = pjson.registry || this.name;
