@@ -339,10 +339,16 @@ NPMLocation.prototype = {
     }
 
     // ignore directory flattening for NodeJS, as npm doesn't do it
-    delete pjson.directories;
+    // we do allow if there was an override through the jspm property though
+    if (!pjson.jspm || !pjson.jspm.directories)
+      delete pjson.directories;
+
+    // ignore node_modules by default when processing
+    if (!(pjson.ignore instanceof Array))
+      pjson.ignore = [];
+    pjson.ignore.push('node_modules');
 
     // if there is a "browser" object, convert it into map config for browserify support
-
     if (typeof pjson.browserify == 'string')
       pjson.main = pjson.browserify;
     if (typeof pjson.browser == 'string')
