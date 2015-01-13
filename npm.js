@@ -328,7 +328,10 @@ NPMLocation.prototype = {
       pjson.dependencies = parseDependencies(pjson.dependencies, this.ui);
     }
 
-    pjson.registry = pjson.registry || this.name;
+    // because the registry property it set when overrides specify dependencies
+    // we only listen to a specific registry override here
+    if (!pjson.jspm.registry)
+      pjson.registry = this.name;
 
     pjson.format = pjson.format || 'cjs';
 
@@ -572,6 +575,7 @@ NPMLocation.prototype = {
                 dep = path.relative(path.dirname(file), resolved);
                 if (dep.substr(0, 1) != '.')
                   dep = './' + dep;
+
                 // ensure that we don't backtrack too deep?
                 // not an issue since installing into ~/.jspm/packages
               }
