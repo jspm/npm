@@ -458,6 +458,11 @@ NPMLocation.prototype = {
   
     return asp(glob)(dir + path.sep + '**' + path.sep + '*.js')
     .then(function(files) {
+
+      // we store the list of directory files to make
+      // only writing after this step to avoid incorrect internal resolutions
+      var directoryFiles = [];
+
       return Promise.all(files.map(function(file) {
         var filename = path.relative(dir, file).replace(/\\/g, '/');
         
@@ -474,6 +479,24 @@ NPMLocation.prototype = {
         var changed = false;
 
         return Promise.resolve()
+
+        .then(function() {
+          // if its an "index.js" file, then check if we can create a directory shortcut for it
+          var parts = filename.split('/');
+          if (parts.pop() != 'index')
+            return;
+          var dirName = parts.join(path.sep);
+          var dirModule = path.resolve(dir, dirName) + '.js';
+          return new Promise(function(resolve, reject) {
+            fs.exists(dirModule, resolve);
+          })
+          .then(function(exists) {
+            if (exists)
+              return;
+
+            directoryFiles.push(dirModule);
+          });
+        })
 
         .then(function() {
           return asp(fs.readFile)(file);
@@ -609,16 +632,26 @@ NPMLocation.prototype = {
           });
         })
         .then(function(output) {
-          if (!changed)
-            return;
           Object.keys(newDeps).forEach(function(dep) {
             pjson.dependencies[dep] = newDeps[dep];
           });
+
+          if (!changed)
+            return;
+
           return asp(fs.writeFile)(file, source);
         }, function(err) {
           buildErrors.push(err);
         });
-      }));
+      }))
+      .then(function() {
+        // write directory forwarding files for external directory requires
+        return Promise.all(directoryFiles.map(function(dirFile) {
+          var dirName = dirFile.split('/').pop();
+          dirName = dirName.substr(0, dirName.length - 3);
+          return fs.writeFile(dirFile, "module.exports = require('./" + dirName + "/index');\n");
+        }));
+      })
     })
     .then(function() {
       return buildErrors;
