@@ -26,6 +26,7 @@ var nodeBuiltins = {
   'fs': 'github:jspm/nodelibs-fs@^0.1.0',
   'http': 'github:jspm/nodelibs-http@^1.7.0',
   'https': 'github:jspm/nodelibs-https@^0.1.0',
+  'module': 'github:jspm/nodelibs-module@^0.1.0',
   'net': 'github:jspm/nodelibs-net@^0.1.0',
   'os': 'github:jspm/nodelibs-os@^0.1.0',
   'path': 'github:jspm/nodelibs-path@^0.1.0',
