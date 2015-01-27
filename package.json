@@ -18,7 +18,7 @@
   "dependencies": {
     "glob": "~4.3.2",
     "graceful-fs": "^3.0.5",
-    "request": "~2.45.0",
+    "request": "~2.51.0",
     "resolve": "^1.0.0",
     "rmdir": "~1.0.0",
     "rsvp": "^3.0.12",
