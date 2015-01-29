@@ -595,7 +595,7 @@ NPMLocation.prototype = {
             // run the NodeJS resolver, to know which file we should get
             else if (!pjson.dependencies[firstPart]) {
               try {
-                var resolved = npmResolve.sync(dep, { basedir: path.dirname(file) });
+                var resolved = npmResolve.sync(dep, { basedir: path.dirname(file) }).replace(/\\/g, '/');
                 dep = path.relative(path.dirname(file), resolved);
                 if (dep.substr(0, 1) != '.')
                   dep = './' + dep;
