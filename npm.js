@@ -577,7 +577,7 @@ NPMLocation.prototype = {
             // first check if this is an alias
             if (aliases[relPath]) {
               changed = true;
-              dep = path.relative(path.dirname(filename), aliases[relPath]);
+              dep = path.relative(baseDir, aliases[relPath].replace(/\//g, path.sep)).replace(/\\/g, '/');
               if (dep.substr(0, 1) != '.')
                 dep = './' + dep;
               relPath = aliases[relPath];
