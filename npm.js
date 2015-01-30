@@ -569,8 +569,9 @@ NPMLocation.prototype = {
           // finally we map builtins to the adjusted module
         })
         .then(function() {
+          var baseDir = path.dirname(path.relative(dir, file));
           return cjsCompiler.remap(source, function(dep) {
-            var relPath = path.join(path.dirname(filename), dep);
+            var relPath = path.join(baseDir, dep.replace(/\//g, path.sep)).replace(/\\/g, '/');
             var firstPart = dep.split('/').splice(0, dep.substr(0, 1) == '@' ? 2 : 1).join('/');
 
             // first check if this is an alias
