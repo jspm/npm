@@ -279,7 +279,8 @@ NPMLocation.prototype = {
           if (packageData[v].dist && packageData[v].dist.shasum)
             versions[v] = {
               hash: packageData[v].dist.shasum,
-              meta: packageData[v]
+              meta: packageData[v],
+              stable: !packageData[v].deprecated
             };
         }
 
