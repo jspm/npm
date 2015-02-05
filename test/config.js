@@ -20,6 +20,7 @@ System.config({
     "dns": "github:jspm/nodelibs-dns@0.1.0",
     "domain": "github:jspm/nodelibs-domain@0.1.0",
     "events": "github:jspm/nodelibs-events@0.1.0",
+    "fs": "github:jspm/nodelibs-fs@0.1.1",
     "http": "github:jspm/nodelibs-http@1.7.0",
     "https": "github:jspm/nodelibs-https@0.1.0",
     "module": "github:jspm/nodelibs-module@0.1.0",
@@ -66,10 +67,6 @@ System.config({
     },
     "github:jspm/nodelibs-events@0.1.0": {
       "events-browserify": "npm:events-browserify@0.0.1"
-    },
-    "github:jspm/nodelibs-fs@0.1.0": {
-      "assert": "npm:assert@1.3.0",
-      "fs": "github:jspm/nodelibs-fs@0.1.0"
     },
     "github:jspm/nodelibs-http@1.7.0": {
       "Base64": "npm:Base64@0.2.1",
@@ -150,7 +147,7 @@ System.config({
     "npm:browserify-aes@0.8.1": {
       "buffer": "github:jspm/nodelibs-buffer@0.1.0",
       "crypto": "github:jspm/nodelibs-crypto@0.1.0",
-      "fs": "github:jspm/nodelibs-fs@0.1.0",
+      "fs": "github:jspm/nodelibs-fs@0.1.1",
       "inherits": "npm:inherits@2.0.1",
       "stream": "github:jspm/nodelibs-stream@0.1.0",
       "systemjs-json": "github:systemjs/plugin-json@0.1.0"
@@ -254,7 +251,7 @@ System.config({
     },
     "npm:pako@0.2.5": {
       "buffer": "github:jspm/nodelibs-buffer@0.1.0",
-      "fs": "github:jspm/nodelibs-fs@0.1.0",
+      "fs": "github:jspm/nodelibs-fs@0.1.1",
       "path": "github:jspm/nodelibs-path@0.1.0",
       "process": "github:jspm/nodelibs-process@0.1.0",
       "util": "github:jspm/nodelibs-util@0.1.0",
@@ -302,7 +299,7 @@ System.config({
     },
     "npm:sha.js@2.3.6": {
       "buffer": "github:jspm/nodelibs-buffer@0.1.0",
-      "fs": "github:jspm/nodelibs-fs@0.1.0",
+      "fs": "github:jspm/nodelibs-fs@0.1.1",
       "inherits": "npm:inherits@2.0.1",
       "process": "github:jspm/nodelibs-process@0.1.0"
     },

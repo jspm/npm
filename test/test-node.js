@@ -9,6 +9,8 @@ var readline = require('readline');
 var repl = require('repl');
 var tls = require('tls');
 
+var fs = require('fs');
+
 assert(child_process.exec);
 assert(cluster.fork);
 assert(dgram.Socket);
@@ -18,5 +20,7 @@ assert(net.createServer);
 assert(readline.cursorTo);
 assert(repl.start);
 assert(tls.connect);
+
+assert(fs.readdirSync);
 
 console.log('Node-only tests completed successfully.');
