@@ -318,8 +318,12 @@ NPMLocation.prototype = {
   },
 
   processPackageConfig: function(pjson) {
-
-    if (!pjson.registry || pjson.registry == 'npm') {
+    // because the registry property it set when overrides specify dependencies
+    // we only listen to a specific registry override here
+    if (!pjson.jspm.registry)
+      pjson.registry = this.name;
+    
+    if (pjson.registry == this.name) {
       // peer dependencies are just dependencies in jspm
       pjson.dependencies = pjson.dependencies || {};
       if (pjson.peerDependencies) {
@@ -329,11 +333,6 @@ NPMLocation.prototype = {
 
       pjson.dependencies = parseDependencies(pjson.dependencies, this.ui);
     }
-
-    // because the registry property it set when overrides specify dependencies
-    // we only listen to a specific registry override here
-    if (!pjson.jspm.registry)
-      pjson.registry = this.name;
 
     pjson.format = pjson.format || 'cjs';
 
@@ -383,7 +382,6 @@ NPMLocation.prototype = {
         pjson.map[b] = pjson.map[b] || mapping;
       }
     }
-
     return pjson;
   },
 

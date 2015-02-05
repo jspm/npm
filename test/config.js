@@ -272,7 +272,8 @@ System.config({
     },
     "npm:pbkdf2-compat@2.0.1": {
       "buffer": "github:jspm/nodelibs-buffer@0.1.0",
-      "crypto": "github:jspm/nodelibs-crypto@0.1.0"
+      "crypto": "github:jspm/nodelibs-crypto@0.1.0",
+      "systemjs-json": "github:systemjs/plugin-json@0.1.0"
     },
     "npm:public-encrypt@1.1.2": {
       "bn.js": "npm:bn.js@1.0.0",
