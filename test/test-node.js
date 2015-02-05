@@ -10,6 +10,7 @@ var repl = require('repl');
 var tls = require('tls');
 
 var fs = require('fs');
+var process = require('process');
 
 assert(child_process.exec);
 assert(cluster.fork);
@@ -22,5 +23,6 @@ assert(repl.start);
 assert(tls.connect);
 
 assert(fs.readdirSync);
+assert(process.env.HOME);
 
 console.log('Node-only tests completed successfully.');
