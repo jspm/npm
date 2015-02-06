@@ -382,6 +382,19 @@ NPMLocation.prototype = {
         pjson.map[b] = pjson.map[b] || mapping;
       }
     }
+
+    // a package can import itself by name
+    var packageName = pjson.name;
+    if (!pjson.map || !pjson.map[packageName]) {
+      pjson.map = pjson.map || {};
+      var main = pjson.main || 'index';
+      if (main.substr(0, 2) == './')
+        main = main.substr(3);
+      if (main.substr(main.length - 3, 3) == '.js')
+        main = main.substr(0, main.length - 3);
+      pjson.map[packageName] = './' + main;
+    }
+
     return pjson;
   },
 
@@ -427,6 +440,7 @@ NPMLocation.prototype = {
 
     // prepare any aliases we need to create
     var aliases = {};
+
     if (typeof pjson.browser == 'object') {
       var curAlias;
       var curTarget;
