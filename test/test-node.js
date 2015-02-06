@@ -11,6 +11,7 @@ var tls = require('tls');
 
 var fs = require('fs');
 var process = require('process');
+var http = require('http');
 
 assert(child_process.exec);
 assert(cluster.fork);
@@ -24,5 +25,6 @@ assert(tls.connect);
 
 assert(fs.readdirSync);
 assert(process.env.HOME);
+assert(http.createServer(function() {}));
 
 console.log('Node-only tests completed successfully.');
