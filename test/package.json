@@ -1,8 +1,8 @@
 {
   "registry": "jspm",
   "directories": {
-    "lib": "",
     "baseURL": "",
+    "lib": "lib",
     "packages": "jspm_packages"
   },
   "dependencies": {
