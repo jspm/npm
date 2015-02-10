@@ -85,7 +85,7 @@ var NPMLocation = function(options, ui) {
   this.remote = options.remote;
 
   // cache versioning scheme
-  this.versionString = options.versionString + '.1';
+  this.versionString = options.versionString + '.2';
 
   if (options.username && !options.auth) {
     options.auth = encodeCredentials(options);
@@ -569,9 +569,9 @@ NPMLocation.prototype = {
           // remap require statements, with mappings:
           // require('file.json') -> require('file.json!')
           // finally we map builtins to the adjusted module
-        })
-        .then(function() {
           var baseDir = path.dirname(path.relative(dir, file));
+
+          // only remap if commonjs
           return cjsCompiler.remap(source, function(dep) {
             var relPath = path.join(baseDir, dep.replace(/\//g, path.sep)).replace(/\\/g, '/');
             var firstPart = dep.split('/').splice(0, dep.substr(0, 1) == '@' ? 2 : 1).join('/');
