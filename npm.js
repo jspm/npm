@@ -37,6 +37,7 @@ var nodeBuiltins = {
   'repl': 'github:jspm/nodelibs-repl@^0.1.0',
   'stream': 'github:jspm/nodelibs-stream@^0.1.0',
   'string_decoder': 'github:jspm/nodelibs-string_decoder@^0.1.0',
+  'sys': 'github:jspm/nodelibs-util@^0.1.0',
   'timers': 'github:jspm/nodelibs-timers@^0.1.0',
   'tls': 'github:jspm/nodelibs-tls@^0.1.0',
   'tty': 'github:jspm/nodelibs-tty@^0.1.0',
@@ -383,18 +384,6 @@ NPMLocation.prototype = {
       }
     }
 
-    // a package can import itself by name
-    var packageName = pjson.name;
-    if (!pjson.map || !pjson.map[packageName]) {
-      pjson.map = pjson.map || {};
-      var main = pjson.main || 'index';
-      if (main.substr(0, 2) == './')
-        main = main.substr(3);
-      if (main.substr(main.length - 3, 3) == '.js')
-        main = main.substr(0, main.length - 3);
-      pjson.map[packageName] = './' + main;
-    }
-
     return pjson;
   },
 
@@ -586,6 +575,15 @@ NPMLocation.prototype = {
           return cjsCompiler.remap(source, function(dep) {
             var relPath = path.join(baseDir, dep.replace(/\//g, path.sep)).replace(/\\/g, '/');
             var firstPart = dep.split('/').splice(0, dep.substr(0, 1) == '@' ? 2 : 1).join('/');
+
+            // packages can import themselves by name
+            if (firstPart == packageName) {
+              // note mains work here because the npmResolve below picks up the jspm-generated main file
+              var depPath = path.join(dir, dep.replace(firstPart, '').replace(/\//g, path.sep));
+              dep = path.relative(path.dirname(file), depPath).replace(/\\/g, '/');
+              if (dep.substr(0, 1) != '.')
+                dep = './' + dep;
+            }
 
             // first check if this is an alias
             if (aliases[relPath]) {
