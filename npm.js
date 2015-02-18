@@ -222,16 +222,9 @@ NPMLocation.configure = function(config, ui) {
   });
 }
 
-NPMLocation.prototype = {
+NPMLocation.packageFormat = /^@[^\/]+\/[^\/]+|^[^@\/][^\/]+/;
 
-  parse: function(name) {
-    var pLen = name.substr(0, 1) == '@' ? 2 : 1;
-    var parts = name.split('/');
-    return {
-      package: parts.splice(0, pLen).join('/'),
-      path: parts.join('/')
-    };
-  },
+NPMLocation.prototype = {
 
   lookup: function(repo) {
     var self = this;
