@@ -667,6 +667,7 @@ NPMLocation.prototype = {
 
 // convert NodeJS or Bower dependencies into jspm-compatible dependencies
 var githubRegEx = /^git(\+[^:]+)?:\/\/github.com\/(.+)/;
+var githubHttpRegEx = /^https?:\/\/github\.com\/([^\/]+\/[^\/]+)\/archive\/([^\/]+)\.tar\.gz$/;
 var protocolRegEx = /^[^\:\/]+:\/\//;
 var semverRegEx = /^(\d+)(?:\.(\d+)(?:\.(\d+)(?:-([\da-z-]+(?:\.[\da-z-]+)*)(?:\+([\da-z-]+(?:\.[\da-z-]+)*))?)?)?)?$/i;
 function parseDependencies(dependencies, ui) {
@@ -687,17 +688,25 @@ function parseDependencies(dependencies, ui) {
       ui.log('warn', 'npm dependency `' + name + '` will likely only work if its GitHub repo has %registry: npm% in its package.json');
     }
 
-    // 2. url:// -> not supported
+    // 2. https?://github.com/name/repo/archive/v?[semver].tar.gz -> github:name/repo@[semver]
+    if (match = dep.match(githubHttpRegEx)) {
+      name = 'github:' + match[1];
+      version = match[2];
+      if (version.substr(0, 1) == 'v' && version.substr(1).match(semverRegEx))
+        version = version.substr(1);
+    }
+
+    // 3. url:// -> not supported
     else if (dep.match(protocolRegEx))
       throw 'npm dependency format ' + dep + ' not currently supported by jspm. Post an issue if required.';
 
-    // 3. name/repo#version -> github:name/repo@version
+    // 4. name/repo#version -> github:name/repo@version
     else if (dep.split('/').length == 2) {
       name = 'github:' + dep.split('#')[0];
       version = dep.split('#')[1] || '*';
     }
 
-    // 4. version -> name@version
+    // 5. version -> name@version
     else {
       name = d;
       version = dep;
