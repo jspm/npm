@@ -653,8 +653,8 @@ NPMLocation.prototype = {
       .then(function() {
         // write directory forwarding files for external directory requires
         return Promise.all(directoryFiles.map(function(dirFile) {
-          var dirName = dirFile.split('/').pop();
-          dirName = dirName.substr(0, dirName.length - 3);
+          var dirName = dirFile.split(path.sep).pop();
+          dirName = dirName.substr(0, dirName.length - 3).replace(/\\/g, '/');
           return fs.writeFile(dirFile, "module.exports = require('./" + dirName + "/index');\n");
         }));
       })
