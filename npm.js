@@ -385,7 +385,8 @@ NPMLocation.prototype = {
     return new Promise(function(resolve, reject) {
       request({
         uri: versionData.dist.tarball,
-        headers: { 'accept': 'application/octet-stream' }
+        headers: { 'accept': 'application/octet-stream' },
+        auth: self.auth
       })
       .on('response', function(npmRes) {
 
