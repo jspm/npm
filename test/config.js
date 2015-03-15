@@ -36,6 +36,8 @@ System.config({
     "string_decoder": "github:jspm/nodelibs-string_decoder@0.1.0",
     "timers": "github:jspm/nodelibs-timers@0.1.0",
     "tls": "github:jspm/nodelibs-tls@0.1.0",
+    "traceur": "github:jmcriffey/bower-traceur@0.0.87",
+    "traceur-runtime": "github:jmcriffey/bower-traceur-runtime@0.0.87",
     "tty": "github:jspm/nodelibs-tty@0.1.0",
     "url": "github:jspm/nodelibs-url@0.1.0",
     "util": "github:jspm/nodelibs-util@0.1.0",
@@ -70,10 +72,8 @@ System.config({
     },
     "github:jspm/nodelibs-http@1.7.0": {
       "Base64": "npm:Base64@0.2.1",
-      "events": "github:jspm/nodelibs-events@0.1.0",
       "inherits": "npm:inherits@2.0.1",
       "stream": "github:jspm/nodelibs-stream@0.1.0",
-      "url": "github:jspm/nodelibs-url@0.1.0",
       "util": "github:jspm/nodelibs-util@0.1.0"
     },
     "github:jspm/nodelibs-https@0.1.0": {
