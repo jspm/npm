@@ -203,6 +203,8 @@ NPMLocation.configure = function(config, ui) {
   })
   .then(function(registry) {
     config.registry = registry;
+    if (config.registry.substr(config.registry.length - 1, 1) == '/')
+      config.registry = config.registry.substr(0, config.registry.length - 1);
 
     if (rcauth)
       return true;
@@ -312,21 +314,19 @@ NPMLocation.prototype = {
   },
 
   processPackageConfig: function(pjson) {
-    // because the registry property it set when overrides specify dependencies
-    // we only listen to a specific registry override here
-    if (!pjson.jspm.registry)
-      pjson.registry = this.name;
-    
-    if (pjson.registry == this.name) {
-      // peer dependencies are just dependencies in jspm
-      pjson.dependencies = pjson.dependencies || {};
-      if (pjson.peerDependencies) {
-        for (var d in pjson.peerDependencies)
-          pjson.dependencies[d] = pjson.peerDependencies[d];
-      }
+    // only do npm-specific processing for npm registry
+    pjson.registry = pjson.registry || this.name;
+    if (pjson.registry != this.name)
+      return pjson;
 
-      pjson.dependencies = parseDependencies(pjson.dependencies, this.ui);
+    // peer dependencies are just dependencies in jspm
+    pjson.dependencies = pjson.dependencies || {};
+    if (pjson.peerDependencies) {
+      for (var d in pjson.peerDependencies)
+        pjson.dependencies[d] = pjson.peerDependencies[d];
     }
+
+    pjson.dependencies = parseDependencies(pjson.dependencies, this.ui);
 
     pjson.format = pjson.format || 'cjs';
 
