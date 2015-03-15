@@ -314,9 +314,7 @@ NPMLocation.prototype = {
   },
 
   processPackageConfig: function(pjson) {
-    // only do npm-specific processing for npm registry
-    pjson.registry = pjson.registry || this.name;
-    if (pjson.registry != this.name)
+    if (pjson.jspmNodeConversion === false)
       return pjson;
 
     // peer dependencies are just dependencies in jspm
@@ -413,6 +411,9 @@ NPMLocation.prototype = {
   },
 
   build: function(pjson, dir) {
+    if (pjson.jspmNodeConversion === false)
+      return;
+
     var packageName = pjson.name;
 
     var main = pjson.main || 'index';
