@@ -21,7 +21,7 @@
     "http": "jspm/nodelibs-http@^1.7.0",
     "https": "jspm/nodelibs-https@^0.1.0",
     "module": "jspm/nodelibs-module@^0.1.0",
-    "net": "jspm/nodelibs-net@^0.1.0",
+    "net": "jspm/nodelibs-net@^0.1.2",
     "os": "jspm/nodelibs-os@^0.1.0",
     "path": "jspm/nodelibs-path@^0.1.0",
     "process": "jspm/nodelibs-process@^0.1.1",
