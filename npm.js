@@ -9,8 +9,6 @@ var glob = require('glob');
 var nodeSemver = require('semver');
 var npmResolve = require('resolve');
 
-var cjsCompiler = require('systemjs-builder/compilers/cjs');
-
 var nodeBuiltins = {
   'assert': 'github:jspm/nodelibs-assert@^0.1.0',
   'buffer': 'github:jspm/nodelibs-buffer@^0.1.0',
@@ -567,7 +565,7 @@ NPMLocation.prototype = {
           var baseDir = path.dirname(path.relative(dir, file));
 
           // only remap if commonjs
-          return cjsCompiler.remap(source, function(dep) {
+          return require('systemjs-builder/compilers/cjs').remap(source, function(dep) {
             var relPath = path.join(baseDir, dep.replace(/\//g, path.sep)).replace(/\\/g, '/');
             var firstPart = dep.split('/').splice(0, dep.substr(0, 1) == '@' ? 2 : 1).join('/');
 
