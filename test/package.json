@@ -1,9 +1,7 @@
 {
   "registry": "github",
   "directories": {
-    "baseURL": "",
-    "lib": "lib",
-    "packages": "jspm_packages"
+    "lib": "lib"
   },
   "dependencies": {
     "assert": "jspm/nodelibs-assert@^0.1.0",

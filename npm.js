@@ -83,7 +83,7 @@ var NPMLocation = function(options, ui) {
   this.remote = options.remote;
 
   // cache versioning scheme
-  this.versionString = options.versionString + '.2';
+  // this.versionString = options.versionString + '.1';
 
   if (options.username && !options.auth) {
     options.auth = encodeCredentials(options);
