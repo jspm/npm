@@ -676,6 +676,8 @@ function parseDependencies(dependencies, ui) {
   for (var d in dependencies) (function(d) {
     var dep = dependencies[d];
 
+    console.log('----> ' + dep);
+
     var match, name, version = '';
 
     // 1. git://github.com/name/repo.git#version -> github:name/repo@version
@@ -683,13 +685,15 @@ function parseDependencies(dependencies, ui) {
       dep = match[2];
       name = 'github:' + dep.split('#')[0];
       version = dep.split('#')[1] || '*';
+      if (version.substr(0, 1) == 'v' && version.substr(1).match(semverRegEx))
+        version = version.substr(1);
       if (name.substr(name.length - 4, 4) == '.git')
         name = name.substr(0, name.length - 4);
       ui.log('warn', 'npm dependency `' + name + '` will likely only work if its GitHub repo has %registry: npm% in its package.json');
     }
 
     // 2. https?://github.com/name/repo/archive/v?[semver].tar.gz -> github:name/repo@[semver]
-    if (match = dep.match(githubHttpRegEx)) {
+    else if (match = dep.match(githubHttpRegEx)) {
       name = 'github:' + match[1];
       version = match[2];
       if (version.substr(0, 1) == 'v' && version.substr(1).match(semverRegEx))
