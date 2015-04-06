@@ -676,8 +676,6 @@ function parseDependencies(dependencies, ui) {
   for (var d in dependencies) (function(d) {
     var dep = dependencies[d];
 
-    console.log('----> ' + dep);
-
     var match, name, version = '';
 
     // 1. git://github.com/name/repo.git#version -> github:name/repo@version
