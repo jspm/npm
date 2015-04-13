@@ -772,7 +772,7 @@ function parseDependencies(dependencies, ui) {
           }
           else {
             // equality
-            lowerBound = upperBound = part.substr(1);
+            lowerBound = upperBound = (part.substr(0, 1) == '=' ? part.substr(1) : part);
             lEq = uEq = true;
             break;
           }
