@@ -14,6 +14,8 @@ function testDependency(name, value, expectedName, expectedValue) {
   }
 }
 
+testDependency('react', '0.1.1', 'react', 'react@0.1.1');
+testDependency('react', '=0.1.1', 'react', 'react@0.1.1');
 testDependency('react', '<0.12', 'react', 'react@0.11.0');
 testDependency('react', '<0.12.0', 'react', 'react@0.11.0');
 testDependency('react', '~0.1.1', 'react', 'react@~0.1.1');
@@ -23,6 +25,8 @@ testDependency('react', '0.x', 'react', 'react@0');
 testDependency('react', '>=0.12.0', 'react', 'react@*');
 
 // Scoped
+testDependency('@scoped/react', '0.11.0', '@scoped/react', '@scoped/react@0.11.0');
+testDependency('@scoped/react', '=0.11.0', '@scoped/react', '@scoped/react@0.11.0');
 testDependency('@scoped/react', '<0.12', '@scoped/react', '@scoped/react@0.11.0');
 testDependency('@scoped/react', '<0.12.0', '@scoped/react', '@scoped/react@0.11.0');
 testDependency('@scoped/react', '~0.1.1', '@scoped/react', '@scoped/react@~0.1.1');
