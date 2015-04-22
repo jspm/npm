@@ -231,6 +231,8 @@ NPMLocation.prototype = {
 
     var newLookup = false;
     var lookupCache;
+    var latest = 'latest';
+    var edge = 'beta';
 
     return asp(fs.readFile)(path.resolve(self.tmpDir, repo + '.json'))
     .then(function(lookupJSON) {
@@ -248,7 +250,7 @@ NPMLocation.prototype = {
         } : {}
       }).then(function(res) {
         if (res.statusCode == 304)
-          return { versions: lookupCache.versions };
+          return { versions: lookupCache.versions, latest: latest, edge: edge };
 
         if (res.statusCode == 404)
           return { notfound: true };
@@ -286,7 +288,7 @@ NPMLocation.prototype = {
           };
         }
 
-        return { versions: versions };
+        return { versions: versions, latest: latest, edge: edge };
       });
     })
     .then(function(response) {
@@ -451,7 +453,7 @@ NPMLocation.prototype = {
 
     var buildErrors = [];
     var newDeps = {};
-  
+
     return asp(glob)(dir + path.sep + '**' + path.sep + '*.js')
     .then(function(files) {
 
@@ -461,7 +463,7 @@ NPMLocation.prototype = {
 
       return Promise.all(files.map(function(file) {
         var filename = path.relative(dir, file).replace(/\\/g, '/');
-        
+
         // skip files in the ignore paths
         // NB this can be removed with https://github.com/jspm/jspm-cli/issues/345
         if (pjson.ignore) {
@@ -546,7 +548,7 @@ NPMLocation.prototype = {
 
           // Note an alternative here would be to use https://github.com/substack/insert-module-globals
           var usesBuffer = source.match(bufferRegEx), usesProcess = source.match(processRegEx);
-          
+
           // the buffer and process nodelibs modules themselves don't wrap themselves
           if (pjson.name == 'buffer')
             usesBuffer = false;
@@ -631,7 +633,7 @@ NPMLocation.prototype = {
             }
 
             return dep;
-            
+
           }, file)
           .then(function(output) {
             source = output.source;
