@@ -231,8 +231,8 @@ NPMLocation.prototype = {
 
     var newLookup = false;
     var lookupCache;
-    var latest = 'latest';
-    var edge = 'beta';
+    var latestKey = 'latest';
+    var edgeKey = 'beta';
 
     return asp(fs.readFile)(path.resolve(self.tmpDir, repo + '.json'))
     .then(function(lookupJSON) {
@@ -250,7 +250,9 @@ NPMLocation.prototype = {
         } : {}
       }).then(function(res) {
         if (res.statusCode == 304)
-          return { versions: lookupCache.versions, latest: latest, edge: edge };
+          return { versions: lookupCache.versions,
+                   latest: lookupCache.latest,
+                   edge: lookupCache.edge };
 
         if (res.statusCode == 404)
           return { notfound: true };
@@ -262,10 +264,16 @@ NPMLocation.prototype = {
           throw 'Invalid status code ' + res.statusCode;
 
         var versions = {};
+        var latest;
+        var edge;
         var packageData;
 
         try {
-          packageData = JSON.parse(res.body).versions;
+          var json = JSON.parse(res.body);
+          var distTags = json['dist-tags'] || {};
+          packageData = json.versions;
+          latest = distTags[latestKey];
+          edge = distTags[edgeKey];
         }
         catch(e) {
           throw 'Unable to parse package.json';
@@ -284,11 +292,15 @@ NPMLocation.prototype = {
           newLookup = true;
           lookupCache = {
             eTag: res.headers.etag,
-            versions: versions
+            versions: versions,
+            latest: latest,
+            edge: edge
           };
         }
 
-        return { versions: versions, latest: latest, edge: edge };
+        return { versions: versions,
+                 latest: latest,
+                 edge: edge };
       });
     })
     .then(function(response) {
