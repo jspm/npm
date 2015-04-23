@@ -731,10 +731,7 @@ function parseDependencies(dependencies, ui) {
     // otherwise, we convert an npm range into something jspm-compatible
     // if it is an exact semver, or a tag, just use it directly
     if (!nodeSemver.valid(version)) {
-      if (version == '')
-        version = '';
-
-      else if (version == 'latest' || version == '*')
+      if (version == '' || version == 'latest' || version == '*')
         version = '*';
 
       // if we have a semver or fuzzy range, just keep as-is
