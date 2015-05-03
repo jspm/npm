@@ -243,7 +243,7 @@ NPMLocation.prototype = {
       throw e;
     })
     .then(function() {
-      return asp(request)(self.registryURL + '/' + encodeURIComponent(repo), {
+      return asp(request)(self.registryURL + '/' + (repo[0] == '@' ? '@' + encodeURIComponent(repo.substr(1)) : encodeURIComponent(repo)), {
         auth: self.auth,
         headers: lookupCache ? {
           'if-none-match': lookupCache.eTag
