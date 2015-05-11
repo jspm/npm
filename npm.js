@@ -81,7 +81,7 @@ var NPMLocation = function(options, ui) {
   this.registryURL = options.registry || defaultRegistry;
   this.tmpDir = options.tmpDir;
   this.remote = options.remote;
-  this.strictSSL = options.strictSSL;
+  this.strictSSL = 'strictSSL' in options ? options.strictSSL : true;
 
   // cache versioning scheme
   // this.versionString = options.versionString + '.1';
