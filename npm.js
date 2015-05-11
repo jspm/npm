@@ -345,6 +345,15 @@ NPMLocation.prototype = {
         pjson.dependencies[d] = pjson.peerDependencies[d];
     }
 
+    var cname = this.name + ':' + pjson.name;
+    for (var d in pjson.dependencies) {
+      var dep = pjson.dependencies[d];
+
+      if (dep.indexOf(':') > -1)
+        this.ui.log('warn', 'To use JSPM-versioned dependencies in ' + cname +
+            ', you will need to add a {registry: "jspm"} override.');
+    };
+
     pjson.dependencies = parseDependencies(pjson.dependencies, this.ui);
 
     pjson.format = pjson.format || 'cjs';
