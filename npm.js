@@ -681,7 +681,7 @@ NPMLocation.prototype = {
 
 // convert NodeJS or Bower dependencies into jspm-compatible dependencies
 var githubRegEx = /^git(\+[^:]+)?:\/\/github.com\/(.+)/;
-var githubHttpRegEx = /^https?:\/\/github\.com\/([^\/]+\/[^\/]+)\/archive\/([^\/]+)\.tar\.gz$/;
+var githubHttpRegEx = /^https?:\/\/github\.com\/([^\/]+\/[^\/]+)\/archive\/([^\/]+)\.(tar\.gz|zip)$/;
 var protocolRegEx = /^[^\:\/]+:\/\//;
 var semverRegEx = /^(\d+)(?:\.(\d+)(?:\.(\d+)(?:-([\da-z-]+(?:\.[\da-z-]+)*)(?:\+([\da-z-]+(?:\.[\da-z-]+)*))?)?)?)?$/i;
 function parseDependencies(dependencies, ui) {
