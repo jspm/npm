@@ -312,7 +312,8 @@ NPMLocation.prototype = {
       if (newLookup) {
         var lookupJSON = JSON.stringify(lookupCache);
         var outputPath = path.resolve(self.tmpDir, repo + '.json');
-        return asp(mkdirp)(path.dirname(outputPath)).then(function() {
+        return asp(mkdirp)(path.dirname(outputPath))
+        .then(function() {
           return asp(fs.writeFile)(outputPath, lookupJSON);
         })
         .then(function() {
