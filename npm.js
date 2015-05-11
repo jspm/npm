@@ -437,7 +437,14 @@ NPMLocation.prototype = {
 
         npmRes.resume();
       })
-      .on('error', reject);
+      .on('error', function(error) {
+        if (typeof error == 'string') {
+          error = new Error(error);
+          error.hideStack = true;
+        }
+        error.retriable = true;
+        reject(error);
+      });
     });
   },
 
