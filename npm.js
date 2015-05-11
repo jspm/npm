@@ -8,6 +8,7 @@ var path = require('path');
 var glob = require('glob');
 var nodeSemver = require('semver');
 var npmResolve = require('resolve');
+var mkdirp = require('mkdirp');
 
 var nodeBuiltins = {
   'assert': 'github:jspm/nodelibs-assert@^0.1.0',
@@ -233,6 +234,9 @@ NPMLocation.prototype = {
     var lookupCache;
     var latestKey = 'latest';
     var edgeKey = 'beta';
+    var repoPath = repo[0] == '@' ?
+      '@' + encodeURIComponent(repo.substr(1)) :
+      encodeURIComponent(repo)
 
     return asp(fs.readFile)(path.resolve(self.tmpDir, repo + '.json'))
     .then(function(lookupJSON) {
@@ -243,7 +247,7 @@ NPMLocation.prototype = {
       throw e;
     })
     .then(function() {
-      return asp(request)(self.registryURL + '/' + (repo[0] == '@' ? '@' + encodeURIComponent(repo.substr(1)) : encodeURIComponent(repo)), {
+      return asp(request)(self.registryURL + '/' + repoPath, {
         auth: self.auth,
         headers: lookupCache ? {
           'if-none-match': lookupCache.eTag
@@ -305,11 +309,16 @@ NPMLocation.prototype = {
     })
     .then(function(response) {
       // save lookupCache
-      if (newLookup)
-        return asp(fs.writeFile)(path.resolve(self.tmpDir, repo + '.json'), JSON.stringify(lookupCache))
+      if (newLookup) {
+        var lookupJSON = JSON.stringify(lookupCache);
+        var outputPath = path.resolve(self.tmpDir, repo + '.json');
+        return asp(mkdirp)(path.dirname(outputPath)).then(function() {
+          return asp(fs.writeFile)(outputPath, lookupJSON);
+        })
         .then(function() {
           return response;
         });
+      };
 
       return response;
     })
