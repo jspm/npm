@@ -82,6 +82,7 @@ var NPMLocation = function(options, ui) {
   this.registryURL = options.registry || defaultRegistry;
   this.tmpDir = options.tmpDir;
   this.remote = options.remote;
+  this.strictSSL = 'strictSSL' in options ? options.strictSSL : true;
 
   // cache versioning scheme
   // this.versionString = options.versionString + '.1';
@@ -139,7 +140,8 @@ function configureCredentials(registry, _auth, ui) {
         auth: {
           user: auth.username,
           pass: auth.password
-        }
+        },
+        strictSSL: this.strictSSL
       });
     })
     .then(function(res) {
@@ -249,6 +251,7 @@ NPMLocation.prototype = {
     .then(function() {
       return asp(request)(self.registryURL + '/' + repoPath, {
         auth: self.auth,
+        strictSSL: self.strictSSL,
         headers: lookupCache ? {
           'if-none-match': lookupCache.eTag
         } : {}
@@ -262,7 +265,7 @@ NPMLocation.prototype = {
           return { notfound: true };
 
         if (res.statusCode == 401)
-          throw 'Invalid authentication details. Run %jspm endpoint config ' + self.name + '% to reconfigure.';
+          throw 'Invalid authentication details. Run %jspm registry config ' + self.name + '% to reconfigure.';
 
         if (res.statusCode != 200)
           throw 'Invalid status code ' + res.statusCode;
@@ -415,7 +418,8 @@ NPMLocation.prototype = {
       request({
         uri: versionData.dist.tarball,
         headers: { 'accept': 'application/octet-stream' },
-        auth: self.auth
+        auth: self.auth,
+        strictSSL: self.strictSSL
       })
       .on('response', function(npmRes) {
 
