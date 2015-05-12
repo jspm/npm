@@ -235,7 +235,6 @@ NPMLocation.prototype = {
     var newLookup = false;
     var lookupCache;
     var latestKey = 'latest';
-    var edgeKey = 'beta';
     var repoPath = repo[0] == '@' ?
       '@' + encodeURIComponent(repo.substr(1)) :
       encodeURIComponent(repo);
@@ -258,8 +257,7 @@ NPMLocation.prototype = {
       }).then(function(res) {
         if (res.statusCode == 304)
           return { versions: lookupCache.versions,
-                   latest: lookupCache.latest,
-                   edge: lookupCache.edge };
+                   latest: lookupCache.latest };
 
         if (res.statusCode == 404)
           return { notfound: true };
@@ -272,7 +270,6 @@ NPMLocation.prototype = {
 
         var versions = {};
         var latest;
-        var edge;
         var packageData;
 
         try {
@@ -280,7 +277,6 @@ NPMLocation.prototype = {
           var distTags = json['dist-tags'] || {};
           packageData = json.versions;
           latest = distTags[latestKey];
-          edge = distTags[edgeKey];
         }
         catch(e) {
           throw 'Unable to parse package.json';
@@ -301,13 +297,11 @@ NPMLocation.prototype = {
             eTag: res.headers.etag,
             versions: versions,
             latest: latest,
-            edge: edge
           };
         }
 
         return { versions: versions,
-                 latest: latest,
-                 edge: edge };
+                 latest: latest };
       });
     })
     .then(function(response) {
