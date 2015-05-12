@@ -101,7 +101,7 @@ var NPMLocation = function(options, ui) {
       pass: auth.password
     };
   }
-}
+};
 
 var bufferRegEx = /(?:^|[^$_a-zA-Z\xA0-\uFFFF.])Buffer/;
 var processRegEx = /(?:^|[^$_a-zA-Z\xA0-\uFFFF.])process/;
@@ -124,7 +124,7 @@ function configureCredentials(registry, _auth, ui) {
       })
       .then(function(password) {
         auth.password = password;
-      })
+      });
     }
   })
   .then(function() {
@@ -168,7 +168,7 @@ function configureCredentials(registry, _auth, ui) {
       });
     else
       return encodeCredentials(auth);
-  })
+  });
 }
 
 NPMLocation.configure = function(config, ui) {
@@ -200,7 +200,7 @@ NPMLocation.configure = function(config, ui) {
       });
   })
   .then(function() {
-    return ui.input('npm registry', rcregistry || config.registry || defaultRegistry)
+    return ui.input('npm registry', rcregistry || config.registry || defaultRegistry);
   })
   .then(function(registry) {
     config.registry = registry;
@@ -223,7 +223,7 @@ NPMLocation.configure = function(config, ui) {
   .then(function() {
     return config;
   });
-}
+};
 
 NPMLocation.packageFormat = /^@[^\/]+\/[^\/]+|^[^@\/][^\/]+/;
 
@@ -238,7 +238,7 @@ NPMLocation.prototype = {
     var edgeKey = 'beta';
     var repoPath = repo[0] == '@' ?
       '@' + encodeURIComponent(repo.substr(1)) :
-      encodeURIComponent(repo)
+      encodeURIComponent(repo);
 
     return asp(fs.readFile)(path.resolve(self.tmpDir, repo + '.json'))
     .then(function(lookupJSON) {
@@ -322,10 +322,10 @@ NPMLocation.prototype = {
         .then(function() {
           return response;
         });
-      };
+      }
 
       return response;
-    })
+    });
   },
 
   getPackageConfig: function(repo, version, hash, pjson) {
@@ -356,7 +356,7 @@ NPMLocation.prototype = {
       if (dep.indexOf(':') > -1)
         this.ui.log('warn', 'To use JSPM-versioned dependencies in ' + cname +
             ', you will need to add a {registry: "jspm"} override.');
-    };
+    }
 
     pjson.dependencies = parseDependencies(pjson.dependencies, this.ui);
 
@@ -701,7 +701,7 @@ NPMLocation.prototype = {
           dirName = dirName.substr(0, dirName.length - 3).replace(/\\/g, '/');
           return fs.writeFile(dirFile, "module.exports = require('./" + dirName + "/index');\n");
         }));
-      })
+      });
     })
     .then(function() {
       return buildErrors;
@@ -717,13 +717,13 @@ var semverRegEx = /^(\d+)(?:\.(\d+)(?:\.(\d+)(?:-([\da-z-]+(?:\.[\da-z-]+)*)(?:\
 function parseDependencies(dependencies, ui) {
   // do dependency parsing
   var outDependencies = {};
-  for (var d in dependencies) (function(d) {
+  var process = function(d) {
     var dep = dependencies[d];
 
     var match, name, version = '';
 
     // 1. git://github.com/name/repo.git#version -> github:name/repo@version
-    if (match = dep.match(githubRegEx)) {
+    if ((match = dep.match(githubRegEx))) {
       dep = match[2];
       name = 'github:' + dep.split('#')[0];
       version = dep.split('#')[1] || '*';
@@ -735,7 +735,7 @@ function parseDependencies(dependencies, ui) {
     }
 
     // 2. https?://github.com/name/repo/archive/v?[semver].tar.gz -> github:name/repo@[semver]
-    else if (match = dep.match(githubHttpRegEx)) {
+    else if ((match = dep.match(githubHttpRegEx))) {
       name = 'github:' + match[1];
       version = match[2];
       if (version.substr(0, 1) == 'v' && version.substr(1).match(semverRegEx))
@@ -761,12 +761,13 @@ function parseDependencies(dependencies, ui) {
     // otherwise, we convert an npm range into something jspm-compatible
     // if it is an exact semver, or a tag, just use it directly
     if (!nodeSemver.valid(version)) {
+      var range;
       if (version == '' || version == 'latest' || version == '*')
         version = '*';
 
       // if we have a semver or fuzzy range, just keep as-is
       else if (version.indexOf(/[ <>=]/) != -1 || !version.substr(1).match(semverRegEx) || !version.substr(0, 1).match(/[\^\~]/))
-        var range = nodeSemver.validRange(version);
+        range = nodeSemver.validRange(version);
 
       if (range == '*')
         version = '*';
@@ -922,7 +923,8 @@ function parseDependencies(dependencies, ui) {
     }
 
     outDependencies[d] = name + (version ? '@' + version : '');
-  })(d);
+  };
+  for (var d in dependencies) process(d);
   return outDependencies;
 }
 
