@@ -87,7 +87,7 @@ var NPMLocation = function(options, ui) {
   }
 
   if (!options.auth) {
-    options.auth = npmrc.getAuth();
+    options.auth = npmrc.getAuth(this.registryURL);
   }
 
   if (options.auth) {
