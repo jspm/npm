@@ -1,5 +1,6 @@
-var Promise = require('rsvp').Promise;
-var asp = require('rsvp').denodeify;
+var rsvp = require('rsvp');
+var Promise = rsvp.Promise;
+var asp = rsvp.denodeify;
 var request = require('request');
 var zlib = require('zlib');
 var tar = require('tar');
@@ -174,8 +175,9 @@ NPMLocation.configure = function(config, ui) {
   var rcauth, rcregistry;
 
   // check if there are settings in npmrc
-  return new Promise(function() {
-    return ui.input('npm registry', this.registryURL);
+  return rsvp.resolve(config.registry || npmrc.getRegistry() || defaultRegistry)
+  .then(function(resolvedRegistry) {
+    return ui.input('npm registry', resolvedRegistry);
   })
   .then(function(registry) {
     config.registry = registry;
