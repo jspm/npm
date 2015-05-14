@@ -170,9 +170,7 @@ function configureCredentials(registry, _auth, ui) {
 
 NPMLocation.configure = function(config, ui) {
   config.remote = config.remote || 'https://npm.jspm.io';
-
   var npmrc = new Npmrc();
-  var rcauth, rcregistry;
 
   // check if there are settings in npmrc
   return rsvp.resolve(config.registry || npmrc.getRegistry() || defaultRegistry)
@@ -190,7 +188,7 @@ NPMLocation.configure = function(config, ui) {
     if (!auth)
       return;
 
-    return configureCredentials(config.registry, rcauth, ui)
+    return configureCredentials(config.registry, npmrc.getAuth(config.registry), ui)
     .then(function(auth) {
       config.auth = auth;
     });
