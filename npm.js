@@ -138,7 +138,7 @@ function configureCredentials(registry, _auth, ui) {
           user: auth.username,
           pass: auth.password
         },
-        strictSSL: this.strictSSL
+        strictSSL: registry.strictSSL
       });
     })
     .then(function(res) {
