@@ -174,27 +174,14 @@ NPMLocation.configure = function(config, ui) {
   var rcauth, rcregistry;
 
   // check if there are settings in npmrc
-  return new Promise(nprc.exists)
-  .then(function(npmrcExists) {
-    if (npmrcExists)
-      return ui.confirm('npmrc found, would you like to use these settings?', true)
-      .then(function(confirm) {
-        if (confirm) {
-          rcregistry = npmrc.getRegistry(npmrc);
-          rcauth = utils.decodeCredentials(npmrc.getAuth(npmrc));
-        }
-      });
-  })
-  .then(function() {
-    return ui.input('npm registry', rcregistry || config.registry || defaultRegistry);
+  return new Promise(function() {
+    return ui.input('npm registry', this.registryURL);
   })
   .then(function(registry) {
     config.registry = registry;
     if (config.registry.substr(config.registry.length - 1, 1) == '/')
       config.registry = config.registry.substr(0, config.registry.length - 1);
 
-    if (rcauth)
-      return true;
     return ui.confirm('Would you like to configure authentication?', false);
   })
   .then(function(auth) {
