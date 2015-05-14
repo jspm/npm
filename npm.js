@@ -1,5 +1,4 @@
 var Promise = require('rsvp').Promise;
-var rsvp = require('rsvp');
 var asp = require('rsvp').denodeify;
 var request = require('request');
 var zlib = require('zlib');
