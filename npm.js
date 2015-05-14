@@ -1,4 +1,5 @@
 var Promise = require('rsvp').Promise;
+var rsvp = require('rsvp');
 var asp = require('rsvp').denodeify;
 var request = require('request');
 var zlib = require('zlib');
@@ -9,6 +10,8 @@ var glob = require('glob');
 var nodeSemver = require('semver');
 var npmResolve = require('resolve');
 var mkdirp = require('mkdirp');
+var Npmrc = require('./lib/npmrc');
+var utils = require('./lib/utils');
 
 var nodeBuiltins = {
   'assert': 'github:jspm/nodelibs-assert@^0.1.0',
@@ -63,23 +66,13 @@ function clone(a) {
   return b;
 }
 
-// avoid storing passwords as plain text in config
-function encodeCredentials(auth) {
-  return new Buffer(encodeURIComponent(auth.username) + ':' + encodeURIComponent(auth.password)).toString('base64');
-}
-function decodeCredentials(str) {
-  var auth = new Buffer(str, 'base64').toString('ascii').split(':');
-  return {
-    username: decodeURIComponent(auth[0]),
-    password: decodeURIComponent(auth[1])
-  };
-}
-
 var NPMLocation = function(options, ui) {
+  var npmrc = new Npmrc();
+
   this.ui = ui;
   this.name = options.name;
   // default needed during upgrade time period
-  this.registryURL = options.registry || defaultRegistry;
+  this.registryURL = options.registry || npmrc.getRegistry() || defaultRegistry;
   this.tmpDir = options.tmpDir;
   this.remote = options.remote;
   this.strictSSL = 'strictSSL' in options ? options.strictSSL : true;
@@ -88,14 +81,18 @@ var NPMLocation = function(options, ui) {
   // this.versionString = options.versionString + '.1';
 
   if (options.username && !options.auth) {
-    options.auth = encodeCredentials(options);
+    options.auth = utils.encodeCredentials(options.username, options.password);
     // NB eventual auth deprecation
     // delete options.username;
     // delete options.password;
   }
 
+  if (!options.auth) {
+    options.auth = npmrc.getAuth();
+  }
+
   if (options.auth) {
-    var auth = decodeCredentials(options.auth);
+    var auth = utils.decodeCredentials(options.auth);
     this.auth = {
       user: auth.username,
       pass: auth.password
@@ -167,35 +164,25 @@ function configureCredentials(registry, _auth, ui) {
           return configureCredentials(registry, null, ui);
       });
     else
-      return encodeCredentials(auth);
+      return utils.encodeCredentials(auth.username, auth.password);
   });
 }
 
 NPMLocation.configure = function(config, ui) {
   config.remote = config.remote || 'https://npm.jspm.io';
 
+  var npmrc = new Npmrc();
   var rcauth, rcregistry;
 
   // check if there are settings in npmrc
-  return asp(fs.readFile)(path.resolve(process.env.HOME || process.env.USERPROFILE || process.env.HOMEPATH, '.npmrc'))
-  .catch(function(e) {
-    if (e.code == 'ENOENT')
-      return;
-    throw e;
-  })
-  .then(function(npmrc) {
-    if (npmrc)
+  return new Promise(nprc.exists)
+  .then(function(npmrcExists) {
+    if (npmrcExists)
       return ui.confirm('npmrc found, would you like to use these settings?', true)
       .then(function(confirm) {
         if (confirm) {
-          npmrc = npmrc.toString();
-          var regMatch = npmrc.match(/registry ?= ?(.+)/);
-          if (regMatch)
-            rcregistry = regMatch[1];
-
-          var authMatch = npmrc.toString().match(/_auth ?= ?(.+)/);
-          if (authMatch)
-            rcauth = decodeCredentials(authMatch[1]);
+          rcregistry = npmrc.getRegistry(npmrc);
+          rcauth = utils.decodeCredentials(npmrc.getAuth(npmrc));
         }
       });
   })
