@@ -172,25 +172,55 @@ NPMLocation.configure = function(config, ui) {
   config.remote = config.remote || 'https://npm.jspm.io';
   var npmrc = new Npmrc();
 
+  var npmrcRegistry = npmrc.getRegistry();
+  var npmrcAuth = npmrc.getAuth(npmrcRegistry || defaultRegistry);
+  var hasNpmrc = npmrcAuth || npmrcRegistry;
+
   // check if there are settings in npmrc
-  return rsvp.resolve(config.registry || npmrc.getRegistry() || defaultRegistry)
-  .then(function(resolvedRegistry) {
-    return ui.input('npm registry', resolvedRegistry);
-  })
-  .then(function(registry) {
-    config.registry = registry;
-    if (config.registry.substr(config.registry.length - 1, 1) == '/')
-      config.registry = config.registry.substr(0, config.registry.length - 1);
+  return rsvp.resolve()
+  .then(function() {
+    if (hasNpmrc) {
+      var msg;
+      if (config.auth || config.registry) {
+        var usage = config.auth ? 'auth' : '';
+        if (config.registry)
+          usage = usage ? usage + ' and registry' : 'registry';
 
-    return ui.confirm('Would you like to configure authentication?', false);
+        msg = 'custom ' + usage  + ' being used currently, would you like to revert to ' +
+              'the npmrc defaults?';
+      }
+      else
+        msg = 'npmrc found, would you like to use these settings?';
+
+      return ui.confirm(msg, false);
+    }
   })
-  .then(function(auth) {
-    if (!auth)
+  .then(function(useNpmrc) {
+    if (useNpmrc) {
+      delete config.registry;
+      delete config.auth;
       return;
+    }
 
-    return configureCredentials(config.registry, npmrc.getAuth(config.registry), ui)
+    return rsvp.resolve(config.registry || defaultRegistry)
+    .then(function(resolvedRegistry) {
+      return ui.input('npm registry', resolvedRegistry);
+    })
+    .then(function(registry) {
+      config.registry = registry;
+      if (config.registry.substr(config.registry.length - 1, 1) == '/')
+        config.registry = config.registry.substr(0, config.registry.length - 1);
+
+      return ui.confirm('Would you like to configure authentication?', false);
+    })
     .then(function(auth) {
-      config.auth = auth;
+      if (!auth)
+        return;
+
+      return configureCredentials(config.registry, npmrc.getAuth(config.registry), ui)
+      .then(function(auth) {
+        config.auth = auth;
+      });
     });
   })
   .then(function() {
