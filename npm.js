@@ -306,18 +306,19 @@ NPMLocation.prototype = {
   },
 
   processPackageConfig: function(pjson) {
+    var d;
     if (pjson.jspmNodeConversion === false)
       return pjson;
 
     // peer dependencies are just dependencies in jspm
     pjson.dependencies = pjson.dependencies || {};
     if (pjson.peerDependencies) {
-      for (var d in pjson.peerDependencies)
+      for (d in pjson.peerDependencies)
         pjson.dependencies[d] = pjson.peerDependencies[d];
     }
 
     var cname = this.name + ':' + pjson.name;
-    for (var d in pjson.dependencies) {
+    for (d in pjson.dependencies) {
       var dep = pjson.dependencies[d];
 
       if (dep.indexOf(':') > -1)
@@ -477,7 +478,7 @@ NPMLocation.prototype = {
         // NB this can be removed with https://github.com/jspm/jspm-cli/issues/345
         if (pjson.ignore) {
           if (pjson.ignore.some(function(path) {
-            return filename.substr(0, path.length) == path && (filename.substr(path.length, 1) == '/' || filename.substr(path.length, 1) == '');
+            return filename.substr(0, path.length) == path && (filename.substr(path.length, 1) == '/' || filename.substr(path.length, 1) === '');
           }))
             return;
         }
@@ -566,8 +567,8 @@ NPMLocation.prototype = {
 
           if (usesBuffer || usesProcess) {
             changed = true;
-            source = "(function(" + (usesBuffer && 'Buffer' || '') + (usesBuffer && usesProcess && ", " || '') + (usesProcess && 'process' || '') + ") {" + source
-                + "\n})(" + (usesBuffer && "require('buffer').Buffer" || '') + (usesBuffer && usesProcess && ", " || '') + (usesProcess && "require('process')" || '') + ");";
+            source = "(function(" + (usesBuffer && 'Buffer' || '') + (usesBuffer && usesProcess && ", " || '') + (usesProcess && 'process' || '') + ") {" + source +
+              "\n})(" + (usesBuffer && "require('buffer').Buffer" || '') + (usesBuffer && usesProcess && ", " || '') + (usesProcess && "require('process')" || '') + ");";
           }
 
           // remap require statements, with mappings:
@@ -729,7 +730,7 @@ function parseDependencies(dependencies, ui) {
     // if it is an exact semver, or a tag, just use it directly
     if (!nodeSemver.valid(version)) {
       var range;
-      if (version == '' || version == 'latest' || version == '*')
+      if (!version || version == 'latest' || version == '*')
         version = '*';
 
       // if we have a semver or fuzzy range, just keep as-is
@@ -858,10 +859,10 @@ function parseDependencies(dependencies, ui) {
             version = upperBound;
 
           // if upper bound is exact major
-          else if (upperSemver[2] == 0 && upperSemver[3] == 0 && !upperSemver[4]) {
+          else if (upperSemver[2] === 0 && upperSemver[3] === 0 && !upperSemver[4]) {
 
             // if previous major is 0
-            if (upperSemver[1] - 1 == 0) {
+            if (upperSemver[1] - 1 === 0) {
               version = '0';
             }
             else {
@@ -874,7 +875,7 @@ function parseDependencies(dependencies, ui) {
             }
           }
           // if upper bound is exact minor
-          else if (upperSemver[3] == 0 && !upperSemver[4]) {
+          else if (upperSemver[3] === 0 && !upperSemver[4]) {
             // if lower bound is minor below, we are fuzzy compatible
             if (lowerSemver[2] == upperSemver[2] - 1)
               version = '~' + getVersion(lowerSemver);
