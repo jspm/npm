@@ -1,10 +1,10 @@
-var npmLocation = require('../npm');
+var nodeConversion = require('../lib/node-conversion');
 
 
 function testDependency(name, value, expectedName, expectedValue) {
   var deps = {};
   deps[name] = value;
-  deps = npmLocation.parseDependencies(deps);
+  deps = nodeConversion.parseDependencies(deps);
 
   for (var p in deps) {
     if (p != expectedName)
