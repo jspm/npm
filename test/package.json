@@ -14,7 +14,7 @@
     "dgram": "jspm/nodelibs-dgram@^0.1.0",
     "dns": "jspm/nodelibs-dns@^0.1.0",
     "domain": "jspm/nodelibs-domain@^0.1.0",
-    "events": "jspm/nodelibs-events@^0.1.0",
+    "events": "jspm/nodelibs-events@^0.1.1",
     "fs": "jspm/nodelibs-fs@^0.1.1",
     "http": "jspm/nodelibs-http@^1.7.0",
     "https": "jspm/nodelibs-https@^0.1.0",
