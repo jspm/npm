@@ -4,6 +4,7 @@
   "description": "jspm npm endpoint",
   "main": "npm.js",
   "scripts": {
+    "coverage": "istanbul cover -- _mocha",
     "test": "node test/unit.js && cd test && jspm run test-shared && jspm run test-node && open test.html && cd .."
   },
   "repository": {
@@ -29,5 +30,10 @@
     "which": "^1.1.1"
   },
   "homepage": "https://github.com/jspm/npm",
-  "devDependencies": {}
+  "devDependencies": {
+    "istanbul": "0.3.21",
+    "lodash": "3.10.1",
+    "mocha": "2.3.3",
+    "unexpected": "9.16.0"
+  }
 }
