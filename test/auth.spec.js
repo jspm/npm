@@ -1,4 +1,6 @@
-var expect = require('unexpected');
+var expect = require('unexpected')
+    .clone()
+    .use(require('unexpected-mitm'));
 var auth = require('../lib/auth');
 var _ = require('lodash');
 
@@ -209,6 +211,128 @@ describe('lib/auth', function () {
             ]);
             var credentialsPromise = auth.configureCredentials('http://registry.npmjs.org', null, ui);
             return expect(credentialsPromise, 'to be fulfilled with', {});
+        });
+        it('username and password authentication chosen, validation working', function () {
+            var ui = uiFactory([
+                { method: 'confirm', message: /Configure token-based/, returns: false },
+                { method: 'input', message: /npm username/, returns: 'superman' },
+                { method: 'input', message: /npm password/, returns: 'clark+louis' },
+                { method: 'confirm', message: /test these credentials/, returns: true },
+                { method: 'log', message: 'npm authentication is working successfully.' }
+            ]);
+            var credentialsPromise = auth.configureCredentials('http://registry.npmjs.org', null, ui);
+            return expect(credentialsPromise, 'with http mocked out', {
+                request: {
+                    url: 'GET http://registry.npmjs.org/',
+                    headers: {
+                        Authorization: 'Basic c3VwZXJtYW46Y2xhcmsrbG91aXM='
+                    },
+                },
+                response: 200
+            }, 'to be fulfilled with', {
+                username: 'superman',
+                password: 'clark+louis'
+            });
+        });
+        it('username and password authentication chosen, validation temporarily failing, deny retrying', function () {
+            // When the user does not want to retry after a failed validation, the promise will resolve with undefined. Is that intended?
+            var ui = uiFactory([
+                { method: 'confirm', message: /Configure token-based/, returns: false },
+                { method: 'input', message: /npm username/, returns: 'superman' },
+                { method: 'input', message: /npm password/, returns: 'clark+louis' },
+                { method: 'confirm', message: /test these credentials/, returns: true },
+                { method: 'log', message: 'Invalid response code, %503%' },
+                { method: 'confirm', message: 'Would you like to try new credentials?', returns: false}
+            ]);
+            var credentialsPromise = auth.configureCredentials('http://registry.npmjs.org', null, ui);
+            return expect(credentialsPromise, 'with http mocked out', {
+                request: {
+                    url: 'GET http://registry.npmjs.org/',
+                    headers: {
+                        Authorization: 'Basic c3VwZXJtYW46Y2xhcmsrbG91aXM='
+                    },
+                },
+                response: 503
+            }, 'to be fulfilled');
+        });
+        it('username and password authentication chosen, validation temporarily failing, retrying', function () {
+            var ui = uiFactory([
+                { method: 'confirm', message: /Configure token-based/, returns: false },
+                { method: 'input', message: /npm username/, returns: 'superman' },
+                { method: 'input', message: /npm password/, returns: 'clark+louis' },
+                { method: 'confirm', message: /test these credentials/, returns: true },
+                { method: 'log', message: 'Invalid response code, %503%' },
+                { method: 'confirm', message: 'Would you like to try new credentials?', returns: true},
+                { method: 'confirm', message: /Configure token-based/, returns: false },
+                { method: 'input', message: /npm username/, returns: 'superman' },
+                { method: 'input', message: /npm password/, returns: 'clark+louis' },
+                { method: 'confirm', message: 'Would you like to test these credentials?', returns: true},
+                { method: 'log', message: 'npm authentication is working successfully.' }
+            ]);
+            var credentialsPromise = auth.configureCredentials('http://registry.npmjs.org', null, ui);
+            return expect(credentialsPromise, 'with http mocked out', [
+                {
+                    request: {
+                        url: 'GET http://registry.npmjs.org/',
+                        headers: {
+                            Authorization: 'Basic c3VwZXJtYW46Y2xhcmsrbG91aXM='
+                        },
+                    },
+                    response: 503
+                },
+                {
+                    request: {
+                        url: 'GET http://registry.npmjs.org/',
+                        headers: {
+                            Authorization: 'Basic c3VwZXJtYW46Y2xhcmsrbG91aXM='
+                        },
+                    },
+                    response: 200
+                }
+            ], 'to be fulfilled with', {
+                username: 'superman',
+                password: 'clark+louis'
+            });
+        });
+        it('username and password authentication chosen, validation permanently failing, deny retrying', function () {
+            // When the user does not want to retry after a failed validation
+            // the promise will resolve with undefined. Is that intended?
+            var ui = uiFactory([
+                { method: 'confirm', message: /Configure token-based/, returns: false },
+                { method: 'input', message: /npm username/, returns: 'superman' },
+                { method: 'input', message: /npm password/, returns: 'clark+louis' },
+                { method: 'confirm', message: /test these credentials/, returns: true },
+                { method: 'log', message: 'Provided npm credentials are not authorized.' },
+                { method: 'confirm', message: 'Would you like to try new credentials?', returns: false}
+            ]);
+            var credentialsPromise = auth.configureCredentials('http://registry.npmjs.org', null, ui);
+            return expect(credentialsPromise, 'with http mocked out', {
+                request: {
+                    url: 'GET http://registry.npmjs.org/',
+                    headers: {
+                        Authorization: 'Basic c3VwZXJtYW46Y2xhcmsrbG91aXM='
+                    },
+                },
+                response: 401
+            }, 'to be fulfilled with', undefined);
+        });
+        it('username and password authentication chosen, validation failing due to network', function () {
+            var ui = uiFactory([
+                { method: 'confirm', message: /Configure token-based/, returns: false },
+                { method: 'input', message: /npm username/, returns: 'superman' },
+                { method: 'input', message: /npm password/, returns: 'clark+louis' },
+                { method: 'confirm', message: /test these credentials/, returns: true }
+            ]);
+            var credentialsPromise = auth.configureCredentials('http://registry.npmjs.org', null, ui);
+            return expect(credentialsPromise, 'with http mocked out', {
+                request: {
+                    url: 'GET http://registry.npmjs.org/',
+                    headers: {
+                        Authorization: 'Basic c3VwZXJtYW46Y2xhcmsrbG91aXM='
+                    },
+                },
+                response: new Error('ENETUNREACH')
+            }, 'to be rejected with', /ENETUNREACH/);
         });
     });
 });
