@@ -2,6 +2,60 @@ var expect = require('unexpected');
 var auth = require('../lib/auth');
 var _ = require('lodash');
 
+function uiFactory(expectedCalls) {
+    var i = 0;
+    return {
+        input: function (message, defaultValue) {
+            if (i + 1 > expectedCalls.length) {
+                expect.fail('Unexpected call to ui.input: "' + message + '", defaultValue: ' + JSON.stringify(defaultValue))
+            }
+            var expectedCall = expectedCalls[i];
+            var toSatisfy =  {
+                method: expectedCall.method,
+                message: expectedCall.message
+            };
+            if (expectedCall.defaultValue) {
+                toSatisfy.defaultValue = expectedCall.defaultValue;
+            }
+            expect({
+                method: 'input',
+                message: message,
+                defaultValue: defaultValue
+            }, 'to satisfy', toSatisfy);
+            i += 1;
+            return expect.promise(function () {
+                return expectedCall.returnDefault ? defaultValue : expectedCall.returns;
+            })
+        },
+        confirm: function (message, defaultValue) {
+            if (i + 1 > expectedCalls.length) {
+                expect.fail('Unexpected call to ui.confirm: "' + message + '", defaultValue: ' + JSON.stringify(defaultValue))
+            }
+            var expectedCall = expectedCalls[i];
+            expect({
+                method: 'confirm',
+                message: message
+            }, 'to satisfy', {
+                method: expectedCall.method,
+                message: expectedCall.message
+            });
+            i += 1;
+            return expect.promise(function () {
+                return expectedCall.returnDefault ? defaultValue : expectedCall.returns;
+            })
+        },
+        log: function (level, message) {
+            var expectedCall = expectedCalls[i];
+            expect(expectedCall, 'to satisfy', {
+                method: 'log',
+                message: message
+            })
+            i += 1;
+            return;
+        }
+    }
+}
+
 describe('lib/auth', function () {
     describe('encoded credentials', function () {
         it('should encode a set of credentials', function () {
@@ -73,6 +127,88 @@ describe('lib/auth', function () {
         });
     });
     describe('configureCredentials', function () {
-
+        it('token based authentication chosen', function () {
+            var ui = uiFactory([
+                { method: 'confirm', message: /Configure token-based/, returns: true },
+                { method: 'input', message: /npm token/, returns: 'foobar' }
+            ]);
+            var credentialsPromise = auth.configureCredentials('http://registry.npmjs.org', null, ui);
+            return expect(credentialsPromise, 'to be fulfilled with', {
+                'token': 'foobar'
+            });
+        });
+        it('username and password authentication chosen, opt out of validation', function () {
+            var ui = uiFactory([
+                { method: 'confirm', message: /Configure token-based/, returns: false },
+                { method: 'input', message: /npm username/, returns: 'superman' },
+                { method: 'input', message: /npm password/, returns: 'louis' },
+                { method: 'confirm', message: /test these credentials/, returns: false }
+            ]);
+            var credentialsPromise = auth.configureCredentials('http://registry.npmjs.org', null, ui);
+            return expect(credentialsPromise, 'to be fulfilled with', {
+                username: 'superman',
+                password: 'louis'
+            });
+        });
+        it('using an already provided token', function () {
+            var ui = uiFactory([
+                {
+                    method: 'confirm',
+                    message: 'Currently using an auth token. Configure token-based authentication?',
+                    returns: true
+                },
+                {
+                    method: 'input',
+                    message: /npm token/,
+                    returnDefault: true
+                }
+            ]);
+            var credentialsPromise = auth.configureCredentials('http://registry.npmjs.org', {
+                token: 'foobar'
+            }, ui);
+            return expect(credentialsPromise, 'to be fulfilled with', {
+                token: 'foobar'
+            });
+        });
+        it('using an already provided username and password, opt out of validation', function () {
+            var ui = uiFactory([
+                {
+                    method: 'confirm',
+                    message: 'Currently using a username and password. Configure token-based authentication?',
+                    returns: false
+                },
+                {
+                    method: 'input',
+                    message: /npm username/,
+                    defaultValue: 'superman',
+                    returnDefault: true
+                },
+                {
+                    method: 'input',
+                    message: /npm password/,
+                    defaultValue: null,
+                    returns: 'clark+louis'
+                },
+                { method: 'confirm', message: /test these credentials/, returns: false }
+            ]);
+            var credentialsPromise = auth.configureCredentials('http://registry.npmjs.org', {
+                username: 'superman',
+                password: 'louis'
+            }, ui);
+            return expect(credentialsPromise, 'to be fulfilled with', {
+                username: 'superman',
+                password: 'clark+louis'
+            });
+        });
+        it('username and password authentication chosen, but no input given', function () {
+            var ui = uiFactory([
+                { method: 'confirm', message: /Configure token-based/, returns: false },
+                { method: 'input', message: /npm username/, returns: '' },
+                { method: 'input', message: /npm password/, returns: '' },
+                { method: 'confirm', message: /test these credentials/, returns: false }
+            ]);
+            var credentialsPromise = auth.configureCredentials('http://registry.npmjs.org', null, ui);
+            return expect(credentialsPromise, 'to be fulfilled with', {});
+        });
     });
 });
