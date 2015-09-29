@@ -257,7 +257,10 @@ describe('lib/auth', function () {
                     },
                 },
                 response: 503
-            }, 'to be fulfilled');
+            }, 'to be fulfilled with', {
+                username: 'superman',
+                password: 'clark+louis'
+            });
         });
         it('username and password authentication chosen, validation temporarily failing, retrying', function () {
             var ui = uiFactory([
@@ -316,7 +319,10 @@ describe('lib/auth', function () {
                     },
                 },
                 response: 401
-            }, 'to be fulfilled with', undefined);
+            }, 'to be fulfilled with', {
+                username: 'superman',
+                password: 'clark+louis'
+            });
         });
         it('username and password authentication chosen, validation failing due to network', function () {
             var ui = uiFactory([
