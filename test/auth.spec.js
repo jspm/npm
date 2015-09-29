@@ -2,7 +2,12 @@ var expect = require('unexpected')
     .clone()
     .use(require('unexpected-mitm'));
 var auth = require('../lib/auth');
-var _ = require('lodash');
+
+function extend(a, b) {
+    for (var p in b)
+        a[p] = b[p];
+    return a;
+}
 
 function uiFactory(expectedCalls) {
     var i = 0;
@@ -81,7 +86,7 @@ describe('lib/auth', function () {
         };
         var requestOptions;
         beforeEach(function () {
-            requestOptions = _.extend({}, baseRequestOptions);
+            requestOptions = extend({}, baseRequestOptions);
         });
         it('should return request options if no auth options are given', function () {
             requestOptions = auth.injectRequestOptions(requestOptions);

@@ -32,7 +32,6 @@
   "homepage": "https://github.com/jspm/npm",
   "devDependencies": {
     "istanbul": "0.3.21",
-    "lodash": "3.10.1",
     "magicpen-media": "1.5.1",
     "messy": "6.6.2",
     "mocha": "2.3.3",
