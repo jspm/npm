@@ -240,7 +240,6 @@ describe('lib/auth', function () {
             });
         });
         it('username and password authentication chosen, validation temporarily failing, deny retrying', function () {
-            // When the user does not want to retry after a failed validation, the promise will resolve with undefined. Is that intended?
             var ui = uiFactory([
                 { method: 'confirm', message: /Configure token-based/, returns: false },
                 { method: 'input', message: /npm username/, returns: 'superman' },
@@ -300,8 +299,6 @@ describe('lib/auth', function () {
             });
         });
         it('username and password authentication chosen, validation permanently failing, deny retrying', function () {
-            // When the user does not want to retry after a failed validation
-            // the promise will resolve with undefined. Is that intended?
             var ui = uiFactory([
                 { method: 'confirm', message: /Configure token-based/, returns: false },
                 { method: 'input', message: /npm username/, returns: 'superman' },
