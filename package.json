@@ -32,11 +32,8 @@
   "homepage": "https://github.com/jspm/npm",
   "devDependencies": {
     "istanbul": "0.3.21",
-    "magicpen-media": "1.5.1",
-    "messy": "6.6.2",
     "mocha": "2.3.3",
     "unexpected": "9.16.0",
-    "unexpected-messy": "4.8.1",
     "unexpected-mitm": "7.7.3"
   }
 }
