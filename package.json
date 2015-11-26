@@ -17,16 +17,16 @@
     "url": "https://github.com/jspm/npm/issues"
   },
   "dependencies": {
+    "bluebird": "^3.0.5",
     "graceful-fs": "^3.0.8",
     "mkdirp": "^0.5.1",
     "readdirp": "^2.0.0",
     "request": "~2.58.0",
     "rmdir": "~1.1.0",
-    "rsvp": "^3.0.18",
     "semver": "^5.0.1",
     "systemjs-builder": "^0.15.0",
-    "traceur": "0.0.91",
     "tar": "~1.0.3",
+    "traceur": "0.0.91",
     "which": "^1.1.1"
   },
   "homepage": "https://github.com/jspm/npm",
