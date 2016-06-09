@@ -1,6 +1,6 @@
 {
   "name": "jspm-npm",
-  "version": "0.28.15",
+  "version": "0.29.1",
   "description": "jspm npm endpoint",
   "main": "npm.js",
   "scripts": {
@@ -24,8 +24,8 @@
     "request": "~2.58.0",
     "rmdir": "~1.1.0",
     "semver": "^5.0.1",
-    "systemjs-builder": "^0.15.7",
-    "tar": "~1.0.3",
+    "systemjs-builder": "^0.15.20",
+    "tar": "^2.2.1",
     "traceur": "0.0.105",
     "which": "^1.1.1"
   },
