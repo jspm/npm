@@ -18,7 +18,7 @@ assert(cluster.fork);
 assert(dgram.Socket);
 assert(dns.lookup);
 assert(module.Module);
-assert(net.createServer);
+assert(net.isIP('1.1.1.1'), true);
 assert(readline.cursorTo);
 assert(repl.start);
 assert(tls.connect);

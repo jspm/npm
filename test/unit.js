@@ -1,10 +1,10 @@
-var nodeConversion = require('../lib/node-conversion');
-
+var parseDependencies = require('../lib/npm').parseDependencies;
+var fs = require('fs');
 
 function testDependency(name, value, expectedName, expectedValue) {
   var deps = {};
   deps[name] = value;
-  deps = nodeConversion.parseDependencies(deps);
+  deps = parseDependencies(deps);
 
   for (var p in deps) {
     if (p != expectedName)
@@ -16,25 +16,30 @@ function testDependency(name, value, expectedName, expectedValue) {
 
 testDependency('react', '0.1.1', 'react', 'react@0.1.1');
 testDependency('react', '=0.1.1', 'react', 'react@0.1.1');
-testDependency('react', '<0.12', 'react', 'react@0.11.0');
-testDependency('react', '<0.12.0', 'react', 'react@0.11.0');
+testDependency('react', '<0.12', 'react', 'react@0.11');
+testDependency('react', '<0.12.0', 'react', 'react@0.11');
 testDependency('react', '~0.1.1', 'react', 'react@~0.1.1');
 testDependency('react', '^0.12', 'react', 'react@^0.12');
-testDependency('react', '0.12.x', 'react', 'react@~0.12.0');
+testDependency('react', '0.12', 'react', 'react@0.12');
+testDependency('react', '0.12.x', 'react', 'react@0.12');
 testDependency('react', '0.x', 'react', 'react@0');
 testDependency('react', '>=0.12.0', 'react', 'react@*');
+testDependency('react', '<2.3.4 >=2.3.3', 'react', 'react@2.3.3');
 
 // Scoped
 testDependency('@scoped/react', '0.11.0', '@scoped/react', '@scoped/react@0.11.0');
 testDependency('@scoped/react', '=0.11.0', '@scoped/react', '@scoped/react@0.11.0');
-testDependency('@scoped/react', '<0.12', '@scoped/react', '@scoped/react@0.11.0');
-testDependency('@scoped/react', '<0.12.0', '@scoped/react', '@scoped/react@0.11.0');
+testDependency('@scoped/react', '<0.12', '@scoped/react', '@scoped/react@0.11');
+testDependency('@scoped/react', '<0.12.0', '@scoped/react', '@scoped/react@0.11');
 testDependency('@scoped/react', '~0.1.1', '@scoped/react', '@scoped/react@~0.1.1');
 testDependency('@scoped/react', '^0.12', '@scoped/react', '@scoped/react@^0.12');
-testDependency('@scoped/react', '0.12.x', '@scoped/react', '@scoped/react@~0.12.0');
+testDependency('@scoped/react', '0.12.x', '@scoped/react', '@scoped/react@0.12');
 testDependency('@scoped/react', '0.x', '@scoped/react', '@scoped/react@0');
 testDependency('@scoped/react', '>=0.12.0', '@scoped/react', '@scoped/react@*');
 
-testDependency('get-size', '>=1.1.4 <1.3', 'get-size', 'get-size@~1.2.0');
+testDependency('get-size', '>=1.1.4 <1.3', 'get-size', 'get-size@1.2');
+
+
+
 
 console.log('Unit tests passed');

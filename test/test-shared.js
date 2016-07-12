@@ -7,7 +7,6 @@ var domain = require('domain');
 var events = require('events');
 var http = require('http');
 var https = require('https');
-var net = require('net');
 var os = require('os');
 var path = require('path');
 var process = require('process');
@@ -36,8 +35,6 @@ d.run(function() {
   evt.on('customEvent', function() {
     assert(http.get);
     assert(https.get);
-
-    assert(net.isIP('1.1.1.1'), true);
 
     assert(os.platform());
 

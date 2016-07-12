@@ -1,6 +1,6 @@
 {
   "name": "jspm-npm",
-  "version": "0.26.8",
+  "version": "0.29.1",
   "description": "jspm npm endpoint",
   "main": "npm.js",
   "scripts": {
@@ -17,16 +17,16 @@
     "url": "https://github.com/jspm/npm/issues"
   },
   "dependencies": {
-    "glob": "^5.0.10",
+    "bluebird": "^3.0.5",
     "graceful-fs": "^4.1.3",
     "mkdirp": "^0.5.1",
+    "readdirp": "^2.0.0",
     "request": "~2.58.0",
-    "resolve": "^1.1.6",
     "rmdir": "~1.1.0",
-    "rsvp": "^3.0.18",
     "semver": "^5.0.1",
-    "systemjs-builder": "^0.15.0",
-    "tar": "~1.0.3",
+    "systemjs-builder": "^0.15.20",
+    "tar": "^2.2.1",
+    "traceur": "0.0.105",
     "which": "^1.1.1"
   },
   "homepage": "https://github.com/jspm/npm",
