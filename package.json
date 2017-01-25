@@ -24,7 +24,6 @@
     "readdirp": "^2.0.0",
     "request": "^2.58.0",
     "semver": "^5.0.1",
-    "systemjs-builder": "^0.15.33",
     "tar-fs": "^1.13.0",
     "traceur": "0.0.105",
     "which": "^1.1.1"
