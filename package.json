@@ -1,6 +1,6 @@
 {
   "name": "jspm-npm",
-  "version": "0.30.1",
+  "version": "0.30.2",
   "description": "jspm npm endpoint",
   "main": "npm.js",
   "scripts": {
