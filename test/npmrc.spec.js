@@ -51,7 +51,7 @@ describe('lib/npmrc', function () {
                       .write('ca certificate');
             npmrcFile = new FileMock(path.resolve(process.cwd(), '.npmrc'))
                       .write('cafile=' + caFile.path);
-                     
+
 
             var ca = npmrc.getCa();
 
@@ -68,7 +68,7 @@ describe('lib/npmrc', function () {
             delete process.env.jspmConfigPath;
             npmrcFile = new FileMock(path.resolve(process.cwd(), '.npmrc'))
                           .write('# empty config');
-                     
+
 
             var ca = npmrc.getCa();
 
