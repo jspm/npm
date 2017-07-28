@@ -98,8 +98,10 @@ describe('lib/auth', function () {
         });
         it('should inject BasicAuth options into request options', function () {
             requestOptions = auth.injectRequestOptions(requestOptions, {
-                username: 'foo',
-                password: 'bar'
+                auth: {
+                    username: 'foo',
+                    password: 'bar'
+                }
             })
             return expect(requestOptions, 'to satisfy', {
                 auth: {
@@ -110,7 +112,9 @@ describe('lib/auth', function () {
         });
         it('should inject auth tokens into request options', function () {
             requestOptions = auth.injectRequestOptions(requestOptions, {
-                token: 'foobar'
+                auth: {
+                    token: 'foobar'
+                }
             })
             return expect(requestOptions, 'to satisfy', {
                 headers: {
@@ -123,12 +127,24 @@ describe('lib/auth', function () {
                 'X-Custom-Header': 'helloworld'
             };
             requestOptions = auth.injectRequestOptions(requestOptions, {
-                token: 'foobar'
+                auth: {
+                    token: 'foobar'
+                }
             })
             return expect(requestOptions, 'to satisfy', {
                 headers: {
                     'X-Custom-Header': 'helloworld',
                     authorization: 'Bearer foobar'
+                }
+            });
+        });
+        it('should inject certificate options into request options', function () {
+            requestOptions = auth.injectRequestOptions(requestOptions, {
+                ca: '-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----'
+            })
+            return expect(requestOptions, 'to satisfy', {
+                agentOptions: {
+                    ca: '-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----'
                 }
             });
         });
