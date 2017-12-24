@@ -178,6 +178,10 @@ If npmrc configurations are not applying correctly in jspm, please post an issue
   async resolve (packageName, version, lookup) {
     if (this.freshLookups[packageName])
       return false;
+
+    // scoped packages dont support exact version lookups on npm
+    if (packageName[0] === '@')
+      return this.lookup(packageName, version, lookup);
     
     let { registryUrl, registryUrlObj } = this.getRegistryUrl(packageName);
 
