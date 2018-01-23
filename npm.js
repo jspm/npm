@@ -162,7 +162,7 @@ If npmrc configurations are not applying correctly in jspm, please post an issue
         const exactVersion = this.util.encodeVersion(distTags[tag]);
         const versionData = lookup.versions[this.util.encodeVersion(distTags[tag])];
         lookup.versions[this.util.encodeVersion(tag)] = versionData;
-        versionData.version = exactVersion;
+        versionData.resolved.version = exactVersion;
       });
     }
 
