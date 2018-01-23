@@ -157,8 +157,14 @@ If npmrc configurations are not applying correctly in jspm, please post an issue
     });
 
     let distTags = json['dist-tags'];
-    if (distTags)
-      Object.keys(distTags).forEach(tag => lookup.versions[this.util.encodeVersion(tag)] = lookup.versions[this.util.encodeVersion(distTags[tag])]);
+    if (distTags) {
+      Object.keys(distTags).forEach(tag => {
+        const exactVersion = this.util.encodeVersion(distTags[tag]);
+        const versionData = lookup.versions[this.util.encodeVersion(distTags[tag])];
+        lookup.versions[this.util.encodeVersion(tag)] = versionData;
+        versionData.version = exactVersion;
+      });
+    }
 
     this.freshLookups[packageName] = true;
     return true;
@@ -224,8 +230,6 @@ If npmrc configurations are not applying correctly in jspm, please post an issue
       var res = await this.util.fetch(`${registryUrl}/${packageName.replace('/', '%2F')}${version ? '/' + version : ''}`, { headers, timeout: this.timeout });
     }
     catch (err) {
-      console.log(err);
-      console.log(err.code);
       switch (err.code) {
         case 'ENOTFOUND':
           if (err.toString().indexOf('getaddrinfo') === -1)
