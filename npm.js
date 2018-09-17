@@ -4,7 +4,7 @@ const convertRange = require('sver/convert-range');
 const npmrc = require('./npmrc');
 const fs = require('fs');
 
-const accept = 'application/vnd.npm.install-v1+json';
+const accept = 'application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*';
 const scopeRegistryRegEx = /^@.+\:registry$/;
 
 module.exports = class NpmEndpoint {
@@ -303,7 +303,7 @@ function versionDataToResolved (vObj, registryUrlObj) {
           delete override.dependencies[name];
       }
     }
-  }  
+  }
 
   const sourceUrl = ensureSourceUrlRegistry(vObj.dist.tarball, registryUrlObj);
 
