@@ -1,5 +1,5 @@
 {
-  "name": "jspm-npm",
+  "name": "@jspm/npm",
   "version": "2.0.0-dev",
   "description": "jspm npm endpoint",
   "main": "npm.js",
