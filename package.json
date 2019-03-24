@@ -26,7 +26,7 @@
     "rsvp": "^3.0.18",
     "semver": "^5.0.1",
     "systemjs-builder": "^0.15.0",
-    "tar": "^1.0.3",
+    "tar": "^2.2.1",
     "which": "^1.1.1"
   },
   "homepage": "https://github.com/jspm/npm",
