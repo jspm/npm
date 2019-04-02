@@ -1,11 +1,12 @@
 const { URL, parse: parseUrl, format: formatUrl } = require('url');
-const { Semver, SemverRange, semverRegEx } = require('sver');
-const convertRange = require('sver/convert-range');
+const { Semver } = require('sver');
 const npmrc = require('./npmrc');
 const fs = require('fs');
+const { createHash } = require('crypto');
+const { Readable } = require('stream');
+const { createGzip } = require('zlib');
 
 const accept = 'application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*';
-const scopeRegistryRegEx = /^@.+\:registry$/;
 
 module.exports = class NpmEndpoint {
   constructor (util, config) {
@@ -51,7 +52,7 @@ module.exports = class NpmEndpoint {
   }
 
   async configure () {
-    this.util.ui.warn(`jspm support for these authorization prompts is pending.
+    this.util.log.warn(`jspm support for these authorization prompts is pending.
 To configure npm authentication, edit the npmrc file directly or use the npm CLI.
 If npmrc configurations are not applying correctly in jspm, please post an issue at https://github.com/jspm/jspm-cli.`);
   }
@@ -59,17 +60,31 @@ If npmrc configurations are not applying correctly in jspm, please post an issue
   /*
    * npm npmrc authentication and credentials handler
    */
-  async auth (url, credentials, unauthorized) {
+  async auth (url, method, credentials, unauthorizedHeaders) {
     // todo - input prompts to assist with reauthorization
     // pending above support
-    if (unauthorized)
-      return;
+    if (unauthorizedHeaders) {
+      if (unauthorizedHeaders['www-authenticate'] && unauthorizedHeaders['www-authenticate'][0] === 'OTP') {
+        const otp = await this.util.input('Enter your npm OTP', {
+          validate (input) {
+            if (!input || input.length !== 6 || parseInt(input, 10).toString().padStart(6, '0') !== input)
+              return 'The OTP code must be a valid 6 digit number.';
+          }
+        });
+        credentials.headers = credentials.headers || {};
+        credentials.headers['npm-otp'] = otp;
+        return true;
+      }
+      this.util.log('Reauthorization for registry scopes not yet implemented. Please post an issue.');
+      return false;
+    }
 
     const host = `//${url.host}`;
-    if (!(url.origin === this.defaultRegistryUrl || url.protocol === 'https' && this.registryHosts.includes(host)))
+    // dont auth normal registry lookups unless its a publish
+    if (method !== 'PUT' &&
+        !(url.origin === this.defaultRegistryUrl || url.protocol === 'https' && this.registryHosts.includes(host)))
       return false;
-    
-    // NB do proxy, and strictSSL scope to individual registries as well?
+
     if (!credentials.proxy)
       credentials.proxy = npmrc.get('https-proxy') || npmrc.get('http-proxy');
     
@@ -100,12 +115,12 @@ If npmrc configurations are not applying correctly in jspm, please post an issue
     if (alwaysAuth === undefined)
       alwaysAuth = npmrc.get('always-auth');
     
-    if (alwaysAuth) {
-      let authToken = npmrc.get(`${host}:_authToken`);
+    if (alwaysAuth || method === 'PUT') {
+      let authToken = npmrc.get(`${host}/:_authToken`);
       if (authToken === undefined)
         authToken = npmrc.get(`_authToken`);
       if (authToken) {
-        credentials.authorization = `Bearer ${authToken}`;
+        credentials.headers = { authorization: `Bearer ${authToken}` };
       }
       // support legacy npm auth formats
       else {
@@ -140,7 +155,7 @@ If npmrc configurations are not applying correctly in jspm, please post an issue
    * Resolved object has the shape:
    * { hash, source?, dependencies?, peerDependencies?, optionalDependencies?, deprecated?, override? }
    */
-  async lookup (packageName, versionRange, lookup) {
+  async lookup (packageName, _versionRange, lookup) {
     if (this.freshLookups[packageName])
       return false;
 
@@ -262,7 +277,7 @@ If npmrc configurations are not applying correctly in jspm, please post an issue
         e.hideStack = true;
         throw e;
       default:
-        var e = new Error(`Invalid status code ${this.util.bold(res.status)} looking up ${this.util.highlight(packageName)}.`);
+        var e = new Error(`Invalid status code ${this.util.bold(res.status)} looking up ${this.util.highlight(packageName)}. ${res.statusText}`);
         e.hideStack = true;
         throw e;
     }
@@ -276,7 +291,91 @@ If npmrc configurations are not applying correctly in jspm, please post an issue
     catch (e) {
       throw `Unable to parse lookup response for ${packageName}.`;
     }
-  }  
+  }
+  async publish (packagePath, pjson, tarStream, { access, tag, otp }) {
+    const { readme, description } = await getReadmeDescription(packagePath, pjson);
+
+    const { registryUrl, registryUrlObj } = this.getRegistryUrl(pjson.name);
+
+    // npm doesn't support chunked transfer!
+    const chunks = [];
+    for await (const chunk of createPublishStream.call(this, pjson, tarStream, { readme, description, tag, access, registryUrlObj })) {
+      chunks.push(chunk);
+    }
+    const body = Buffer.concat(chunks);
+
+    const headers = {
+      accept,
+      'content-type': 'application/json',
+    };
+
+    if (otp)
+      headers['npm-otp'] = otp;
+
+    const request = this.util.fetch(`${registryUrl}/${pjson.name.replace('/', '%2F')}`, {
+      method: 'PUT',
+      headers,
+      timeout: this.timeout,
+      body
+    });
+  
+    try {
+      var res = await request;
+    }
+    catch (err) {
+      switch (err.code) {
+        case 'ENOTFOUND':
+          if (err.toString().indexOf('getaddrinfo') === -1)
+            break;
+        case 'ECONNRESET':
+        case 'ETIMEDOUT':
+        case 'ESOCKETTIMEDOUT':
+          err.retriable = true;
+          err.hideStack = true;
+      }
+      throw err;
+    }
+  
+    switch (res.status) {
+      case 200:
+        break;
+      case 304:
+      case 404:
+        return {};
+      case 406:
+        var e = new Error(`${this.util.highlight(pjson.name)} is not a valid npm package name.`);
+        e.hideStack = true;
+        throw e;
+      case 429:
+        var e = new Error(`npm has ratelimited the publish request. You may need to use different authorization.`);
+        e.hideStack = true;
+        throw e;
+      case 401:
+        if (res.headers.get('www-authenticate') === 'OTP')
+          var e = new Error(`Invalid npm OTP provided.`);
+        else
+          var e = new Error(`Invalid authorization details provided.`);
+        e.hideStack = true;
+        throw e;
+      case 403:
+        try {
+          var info = await res.json();
+        }
+        catch (e) {}
+        if (info && info.error) {
+          var e = new Error(`Error publishing ${this.util.bold(pjson.name)}. ${info.error}`);
+          e.hideStack = true;
+          throw e;
+        }
+        var e = new Error(`Provided credentials are forbidden from publishing ${this.util.bold(pjson.name)}. Ensure you have publish access for this package.`);
+        e.hideStack = true;
+        throw e;
+      default:
+        var e = new Error(`Invalid status code ${this.util.bold(res.status)} looking up ${this.util.highlight(pjson.name)}. ${res.statusText}`);
+        e.hideStack = true;
+        throw e;
+    }
+  }
 }
 // Forcing protocol and port matching for tarballs on the same host as the
 // registry is taken from npm at
@@ -312,4 +411,98 @@ function versionDataToResolved (vObj, registryUrlObj) {
     override,
     deprecated: vObj.deprecated
   };
+}
+
+function getReadmeDescription (packagePath, pjson) {
+  return 'readme';
+}
+
+async function* createPublishStream (pjson, tarStream, { readme, description, tag, access, registryUrlObj }) {
+  const compressedStream = createGzip();
+  tarStream.pipe(compressedStream);
+
+  const ssri = require('ssri');
+  const tarURL = new URL(`${pjson.name}/-/${pjson.name}-${pjson.version}.tgz`, registryUrlObj);
+  tarURL.protocol = 'http';
+  tarURL.port = '';
+
+  const shaHash = createHash('sha1');
+  const ssriHash = ssri.create();
+  // this.ssriStream = crypto.c
+  firstRead = false;
+  yield Buffer.from(JSON.stringify({
+    _id: pjson.name,
+    access,
+    name: pjson.name,
+    description,
+    'dist-tags': {
+      [tag || 'latest']: pjson.version,
+    },
+    readme,
+    _attachments: {
+      [`${pjson.name}-${pjson.version}.tgz`]: {
+        content_type: 'application/octet-stream'
+      }
+    }
+  }).slice(0, -3) + ',"data":"');
+
+  // push the base64 encoding of tarStream
+  let bufferLength = 0;
+  let extraBytes = null;
+  for await (let chunk of compressedStream) {
+    shaHash.update(chunk);
+    ssriHash.update(chunk);
+    
+    if (extraBytes) {
+      chunk = Buffer.concat([extraBytes, chunk]);
+      extraBytes = null;
+    }
+    const remaining = chunk.length % 3;
+    if (remaining !== 0) {
+      extraBytes = chunk.slice(chunk.length - remaining);
+      chunk = chunk.slice(0, chunk.length - remaining);
+    }
+    const base64 = Buffer.from(chunk.toString('base64'));
+    bufferLength += base64.length;
+    yield base64;
+  }
+  if (extraBytes) {
+    const base64 = Buffer.from(extraBytes.toString('base64'));
+    bufferLength += base64.length;
+    yield base64;
+  }
+  yield Buffer.from(`","length":${bufferLength.toString()}}},"versions":${JSON.stringify({
+    [pjson.version]: Object.assign({}, pjson, {
+      _id: `${pjson.name}@${pjson.version}`,
+      dist: Object.assign(pjson.dist || {}, {
+        tarball: tarURL.href,
+        shasum: shaHash.digest('hex'),
+        integrity: ssriHash.digest().toString()
+      })
+    })
+  })}}`);
+}
+
+function toReadable (iterator, opts) {
+  const readable = new Readable(opts);
+  readable._read = next;
+  function onError (err) {
+    readable.destroy(err);
+  }
+  let curNext;
+  async function next () {
+    if (curNext) return curNext;
+    curNext = iterator.next();
+    curNext.catch(onError);
+    const { value, done } = await curNext;
+    curNext = null;
+    if (done) {
+      readable.push(null);
+      return;
+    }
+    if (readable.push(value)) {
+      await next();
+    }
+  }
+  return readable;
 }
