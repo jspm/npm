@@ -293,13 +293,13 @@ If npmrc configurations are not applying correctly in jspm, please post an issue
     }
   }
   async publish (packagePath, pjson, tarStream, { access, tag, otp }) {
-    const { readme, description } = await getReadmeDescription(packagePath, pjson);
+    const readme = await getReadme(packagePath);
 
     const { registryUrl, registryUrlObj } = this.getRegistryUrl(pjson.name);
 
     // npm doesn't support chunked transfer!
     const chunks = [];
-    for await (const chunk of createPublishStream.call(this, pjson, tarStream, { readme, description, tag, access, registryUrlObj })) {
+    for await (const chunk of createPublishStream.call(this, pjson, tarStream, { readme, description: pjson.description, tag, access, registryUrlObj })) {
       chunks.push(chunk);
     }
     const body = Buffer.concat(chunks);
@@ -413,8 +413,25 @@ function versionDataToResolved (vObj, registryUrlObj) {
   };
 }
 
-function getReadmeDescription (packagePath, pjson) {
-  return 'readme';
+async function getReadme (packagePath) {
+  const baseFiles = await new Promise((resolve, reject) =>
+    fs.readdir(packagePath, (err, files) => err ? reject(err) : resolve(files))
+  );
+  let readmeFile;
+  for (const file of baseFiles) {
+    if (file.toLowerCase().startsWith('readme.')) {
+      readmeFile = file;
+      break;
+    }
+    if (file.toLowerCase() === 'readme')
+      readmeFile = file;
+  }
+  if (!readmeFile)
+    return '';
+  const readme = await new Promise((resolve, reject) =>
+    fs.readFile(path.resolve(packagePath, readmeFile), (err, source) => err ? reject(err) : resolve(source))
+  );
+  return readme.toString();
 }
 
 async function* createPublishStream (pjson, tarStream, { readme, description, tag, access, registryUrlObj }) {
