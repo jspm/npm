@@ -26,10 +26,10 @@ module.exports = class NpmEndpoint {
     let npmrcJson = npmrc.json();
     Object.keys(npmrcJson).forEach(key => {
       if (key[0] === '@' && key.endsWith(':registry')) {
-        const value = npmrcJson[key];
-        if (value[value.length - 1] === '/')
-          value = value.substr(0, value.length - 1);
+        let value = npmrcJson[key];
         if (typeof value === 'string') {
+          if (value[value.length - 1] === '/')
+            value = value.substr(0, value.length - 1);
           this.registryScopes[key.substr(0, key.length - 9)] = { registryUrl: value, registryUrlObj: new URL(value) };
           if (!this.registryHosts.find(registryUrl => registryUrl === value))
             this.registryHosts.push(value.substr(value.indexOf('//')));
