@@ -5,6 +5,7 @@ const fs = require('fs');
 const { createHash } = require('crypto');
 const { Readable } = require('stream');
 const { createGzip } = require('zlib');
+const path = require('path');
 
 const accept = 'application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*';
 
