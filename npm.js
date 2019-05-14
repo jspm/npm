@@ -116,7 +116,7 @@ If npmrc configurations are not applying correctly in jspm, please post an issue
     if (alwaysAuth === undefined)
       alwaysAuth = npmrc.get('always-auth');
     
-    if (alwaysAuth || method === 'PUT') {
+    if (alwaysAuth || method === 'PUT' || url.pathname.indexOf("@") !== -1) {
       let authToken = npmrc.get(`${host}/:_authToken`);
       if (authToken === undefined)
         authToken = npmrc.get(`_authToken`);
