@@ -83,7 +83,7 @@ If npmrc configurations are not applying correctly in jspm, please post an issue
     const host = `//${url.host}`;
     // dont auth normal registry lookups unless its a publish
     if (method !== 'PUT' &&
-        !(url.origin === this.defaultRegistryUrl || url.protocol === 'https' && this.registryHosts.includes(host)))
+        !(url.origin === this.defaultRegistryUrl || url.protocol === 'https:' && this.registryHosts.includes(host)))
       return false;
 
     if (!credentials.proxy)
