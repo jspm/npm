@@ -1,6 +1,6 @@
 {
   "name": "@jspm/npm",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "jspm npm endpoint",
   "main": "npm.js",
   "author": "Guy Bedford",
